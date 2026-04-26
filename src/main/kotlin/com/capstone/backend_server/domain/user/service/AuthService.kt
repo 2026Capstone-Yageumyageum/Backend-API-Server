@@ -1,0 +1,54 @@
+package com.capstone.backend_server.domain.user.service
+
+import com.capstone.backend_server.domain.user.dto.AuthResponse
+import com.capstone.backend_server.domain.user.dto.SignupRequest
+import com.capstone.backend_server.domain.user.entity.User
+import com.capstone.backend_server.domain.user.repository.UserRepository
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.gson.GsonFactory
+import jakarta.transaction.Transactional
+import org.springframework.beans.factory.annotation.Value
+
+class AuthService (
+    private val userRepository: UserRepository,
+    @Value("\${spring.security.oauth2.client.registration.google.client-id}")
+    private val googleClientId: String
+){
+    @Transactional
+    fun verifyGoogleToken(idTokenString: String): AuthResponse {
+        val verifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), GsonFactory.getDefaultInstance())
+            .setAudience(listOf(googleClientId))
+            .build()
+        val idToken = verifier.verify(idTokenString)
+            ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다.")
+        val email = idToken.payload.email
+        val isRegistered = userRepository.existsByEmail(email)
+
+        return if (isRegistered) {
+            // jwt 토큰 발급 로직
+            AuthResponse(email, true, "로그인 성공")
+        } else {
+            AuthResponse(email, false, "회원가입이 필요합니다. 닉네임을 입력해주세요.")
+        }
+    }
+
+    @Transactional
+    fun signup(request: SignupRequest): AuthResponse {
+        if(userRepository.existsByEmail(request.email)){
+            throw IllegalArgumentException("이미 가입된 메일입니다.")
+        }
+        if(userRepository.existsByEmail(request.nickname)){
+            throw IllegalArgumentException("이미 사용 중인 닉네임입니다.")
+        }
+        val newUser = User(
+            email = request.email,
+            nickname = request.nickname,
+        )
+        userRepository.save(newUser)
+
+        // jwt 토큰 발급 로직
+        return AuthResponse(request.email, true, "회원가입이 완료되었습니다.")
+    }
+
+}
