@@ -14,7 +14,9 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import jakarta.transaction.Transactional
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Service
 
+@Service
 class AuthService(
     private val userRepository: UserRepository,
     @Value("\${spring.security.oauth2.client.registration.google.client-id}")
