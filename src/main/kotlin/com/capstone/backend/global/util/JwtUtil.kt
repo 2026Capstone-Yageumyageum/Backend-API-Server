@@ -3,6 +3,7 @@ package com.capstone.backend.global.util
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 import java.util.Date
 import javax.crypto.SecretKey
@@ -10,7 +11,8 @@ import javax.crypto.SecretKey
 @Component
 class JwtUtil(
     @Value("\${jwt.secret}") private val secretString: String,
-    @Value("\${jwt.access-expiration}") private val accessExp: Long
+    @Value("\${jwt.access-expiration}") private val accessExp: Long,
+    @Value("\${jwt.refresh-expiration}") val refreshExp: Long
 ) {
     private val secretKey: SecretKey = Keys.hmacShaKeyFor(secretString.toByteArray())
 
@@ -20,6 +22,17 @@ class JwtUtil(
 
         return Jwts.builder()
             .claim("email",email)
+            .subject(id.toString())
+            .issuedAt(now)
+            .expiration(validity)
+            .signWith(secretKey)
+            .compact()
+    }
+    fun generateRefreshToken(id: Long): String {
+        val now = Date()
+        val validity = Date(now.time + refreshExp)
+
+        return Jwts.builder()
             .subject(id.toString())
             .issuedAt(now)
             .expiration(validity)
