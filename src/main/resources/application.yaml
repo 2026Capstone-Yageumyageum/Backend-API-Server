@@ -1,6 +1,7 @@
 spring:
   application:
     name: backend
-jwts:
+jwt:
   access-expiration: 3600000
   refresh-expiration: 1209600000
+  secret: "1234567891011121314151617181920212223"
