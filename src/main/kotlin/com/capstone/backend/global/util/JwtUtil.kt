@@ -3,9 +3,11 @@ package com.capstone.backend.global.util
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
 import java.util.Date
 import javax.crypto.SecretKey
 
+@Component
 class JwtUtil(
     @Value("\${jwt.secret}") private val secretString: String,
     @Value("\${jwt.access-expiration}") private val accessExp: Long
