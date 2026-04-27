@@ -6,7 +6,7 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
-group = "com.capstone"
+group = "com.capstone.backend"
 version = "0.0.1-SNAPSHOT"
 
 java {

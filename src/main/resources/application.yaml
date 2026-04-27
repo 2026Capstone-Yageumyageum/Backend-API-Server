@@ -1,6 +1,6 @@
 spring:
   application:
-    name: backend-server
+    name: backend
 jwts:
   access-expiration: 3600000
   refresh-expiration: 1209600000
