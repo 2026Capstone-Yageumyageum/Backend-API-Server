@@ -1,4 +1,4 @@
-package com.capstone.backend_server
+package com.capstone.backend
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class BackendServerApplication
 
 fun main(args: Array<String>) {
-	runApplication<BackendServerApplication>(*args)
+    runApplication<BackendServerApplication>(*args)
 }
