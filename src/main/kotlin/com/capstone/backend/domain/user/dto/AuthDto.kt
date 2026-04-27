@@ -15,3 +15,12 @@ data class AuthResponse(
     val message: String,
     val accessToken: String? = null
 )
+
+data class RefreshRequest(
+    val refreshToken: String
+)
+
+data class TokenResponse(
+    val accessToken: String,
+    val refreshToken: String
+)
