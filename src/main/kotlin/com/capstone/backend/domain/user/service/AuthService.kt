@@ -8,7 +8,6 @@ import com.capstone.backend.domain.user.entity.User
 import com.capstone.backend.domain.user.repository.RefreshTokenRepository
 import com.capstone.backend.domain.user.repository.UserRepository
 import com.capstone.backend.global.util.JwtUtil
-import com.google.api.client.auth.oauth2.RefreshTokenRequest
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -50,7 +49,7 @@ class AuthService(
         if (userRepository.existsByEmail(request.email)) {
             throw IllegalArgumentException("이미 가입된 메일입니다.")
         }
-        if (userRepository.existsByEmail(request.nickname)) {
+        if (userRepository.existsByNickname(request.nickname)) {
             throw IllegalArgumentException("이미 사용 중인 닉네임입니다.")
         }
         val newUser =
@@ -63,6 +62,8 @@ class AuthService(
         val token = jwtUtil.generateAccessToken(savedUser.id!!, savedUser.email)
         return AuthResponse(request.email, true, "회원가입이 완료되었습니다.",token)
     }
+
+     @Transactional
     fun refreshTokens(requestToken: String): TokenResponse {
         if(!jwtUtil.validateToken(requestToken)){
             throw IllegalArgumentException("유효하지 않거나 만료된 리프레시 토큰입니다.")
