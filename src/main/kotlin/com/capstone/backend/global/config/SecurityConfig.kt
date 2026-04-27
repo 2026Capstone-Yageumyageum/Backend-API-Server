@@ -23,7 +23,15 @@ class SecurityConfig (
             .sessionManagement{ it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/", "/login/**", "/oauth2/**", "/error")
+                    .requestMatchers("/",
+                        "/login/**",
+                        "/oauth2/**",
+                        "/error",
+                        "/api/auth/**",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/swagger-resources/**",
+                        "/webjars/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated()
