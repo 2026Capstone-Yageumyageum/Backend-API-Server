@@ -21,7 +21,7 @@ class AuthService(
     @Value("\${spring.security.oauth2.client.registration.google.client-id}")
     private val googleClientId: String,
     private val jwtUtil: JwtUtil,
-    private val refreshTokenRepository: RefreshTokenRepository
+    private val refreshTokenRepository: RefreshTokenRepository,
 ) {
     @Transactional
     fun verifyGoogleToken(idTokenString: String): AuthResponse {
@@ -44,12 +44,12 @@ class AuthService(
                 RefreshToken(
                     refreshToken = refreshToken,
                     userId = existingUser.id!!,
-                    ttl = jwtUtil.refreshExp/1000
-                )
+                    ttl = jwtUtil.refreshExp / 1000,
+                ),
             )
-            AuthResponse(email, true, "로그인 성공",accessToken,refreshToken)
+            AuthResponse(email, true, "로그인 성공", accessToken, refreshToken)
         } else {
-            AuthResponse(email, false, "회원가입이 필요합니다. 닉네임을 입력해주세요.",null,null)
+            AuthResponse(email, false, "회원가입이 필요합니다. 닉네임을 입력해주세요.", null, null)
         }
     }
 
@@ -75,27 +75,31 @@ class AuthService(
             RefreshToken(
                 refreshToken = refreshToken,
                 userId = savedUser.id!!,
-                ttl = jwtUtil.refreshExp/1000
-            )
+                ttl = jwtUtil.refreshExp / 1000,
+            ),
         )
-        return AuthResponse(request.email, true, "회원가입이 완료되었습니다.",accessToken,refreshToken)
+        return AuthResponse(request.email, true, "회원가입이 완료되었습니다.", accessToken, refreshToken)
     }
 
-     @Transactional
+    @Transactional
     fun refreshTokens(requestToken: String): TokenResponse {
-        if(!jwtUtil.validateToken(requestToken)){
+        if (!jwtUtil.validateToken(requestToken)) {
             throw IllegalArgumentException("유효하지 않거나 만료된 리프레시 토큰입니다.")
         }
-        val storedToken = refreshTokenRepository.findById(requestToken)
-            .orElseThrow{
-                IllegalArgumentException("이미 사용되었거나 만료된 토큰입니다. 다시 로그인해주세요.")
-            }
+        val storedToken =
+            refreshTokenRepository
+                .findById(requestToken)
+                .orElseThrow {
+                    IllegalArgumentException("이미 사용되었거나 만료된 토큰입니다. 다시 로그인해주세요.")
+                }
         refreshTokenRepository.delete(storedToken)
         val userID = storedToken.userId
-        val user = userRepository.findById(userID)
-            .orElseThrow {
-                IllegalArgumentException("사용자를 찾을 수 없습니다.")
-            }
+        val user =
+            userRepository
+                .findById(userID)
+                .orElseThrow {
+                    IllegalArgumentException("사용자를 찾을 수 없습니다.")
+                }
         val newAccessToken = jwtUtil.generateAccessToken(userID, user.email)
         val newRefreshToken = jwtUtil.generateRefreshToken(userID)
 
@@ -103,10 +107,9 @@ class AuthService(
             RefreshToken(
                 refreshToken = newRefreshToken,
                 userId = userID,
-                ttl = jwtUtil.refreshExp / 1000
-            )
+                ttl = jwtUtil.refreshExp / 1000,
+            ),
         )
         return TokenResponse(newAccessToken, newRefreshToken)
-
     }
 }

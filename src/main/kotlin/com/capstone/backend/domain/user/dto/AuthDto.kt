@@ -14,14 +14,14 @@ data class AuthResponse(
     val isRegistered: Boolean,
     val message: String,
     val accessToken: String? = null,
-    val refreshToken: String? = null
+    val refreshToken: String? = null,
 )
 
 data class RefreshRequest(
-    val refreshToken: String
+    val refreshToken: String,
 )
 
 data class TokenResponse(
     val accessToken: String,
-    val refreshToken: String
+    val refreshToken: String,
 )

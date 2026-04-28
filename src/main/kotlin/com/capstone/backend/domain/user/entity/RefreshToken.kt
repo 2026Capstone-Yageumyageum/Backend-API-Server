@@ -5,10 +5,10 @@ import org.springframework.data.redis.core.RedisHash
 import org.springframework.data.redis.core.TimeToLive
 
 @RedisHash("refreshToken")
-class RefreshToken (
+class RefreshToken(
     @Id
     val refreshToken: String,
     val userId: Long,
     @TimeToLive
-    val ttl: Long
+    val ttl: Long,
 )
