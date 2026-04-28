@@ -13,7 +13,8 @@ data class AuthResponse(
     val email: String,
     val isRegistered: Boolean,
     val message: String,
-    val accessToken: String? = null
+    val accessToken: String? = null,
+    val refreshToken: String? = null
 )
 
 data class RefreshRequest(
