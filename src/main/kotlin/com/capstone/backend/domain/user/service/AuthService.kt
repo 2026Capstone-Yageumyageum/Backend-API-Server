@@ -37,10 +37,19 @@ class AuthService(
         val existingUser = userRepository.findByEmail(email)
 
         return if (existingUser != null) {
-            val token = jwtUtil.generateAccessToken(existingUser.id!!, existingUser.email)
-            AuthResponse(email, true, "로그인 성공",token)
+            val accessToken = jwtUtil.generateAccessToken(existingUser.id!!, existingUser.email)
+            val refreshToken = jwtUtil.generateRefreshToken(existingUser.id!!)
+
+            refreshTokenRepository.save(
+                RefreshToken(
+                    refreshToken = refreshToken,
+                    userId = existingUser.id!!,
+                    ttl = jwtUtil.refreshExp/1000
+                )
+            )
+            AuthResponse(email, true, "로그인 성공",accessToken,refreshToken)
         } else {
-            AuthResponse(email, false, "회원가입이 필요합니다. 닉네임을 입력해주세요.",null)
+            AuthResponse(email, false, "회원가입이 필요합니다. 닉네임을 입력해주세요.",null,null)
         }
     }
 
@@ -59,8 +68,17 @@ class AuthService(
             )
         val savedUser = userRepository.save(newUser)
 
-        val token = jwtUtil.generateAccessToken(savedUser.id!!, savedUser.email)
-        return AuthResponse(request.email, true, "회원가입이 완료되었습니다.",token)
+        val accessToken = jwtUtil.generateAccessToken(savedUser.id!!, savedUser.email)
+        val refreshToken = jwtUtil.generateRefreshToken(savedUser.id!!)
+
+        refreshTokenRepository.save(
+            RefreshToken(
+                refreshToken = refreshToken,
+                userId = savedUser.id!!,
+                ttl = jwtUtil.refreshExp/1000
+            )
+        )
+        return AuthResponse(request.email, true, "회원가입이 완료되었습니다.",accessToken,refreshToken)
     }
 
      @Transactional
