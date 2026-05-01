@@ -24,22 +24,27 @@ class AuthService(
     private val jwtUtil: JwtUtil,
     private val refreshTokenRepository: RefreshTokenRepository,
 ) {
-
     private val transport = NetHttpTransport()
     private val jsonFactory = GsonFactory.getDefaultInstance()
     private lateinit var verifier: GoogleIdTokenVerifier
+
     @PostConstruct
-    fun init(){
-        verifier = GoogleIdTokenVerifier.Builder(transport,jsonFactory)
-            .setAudience(listOf(googleClientId))
-            .build()
+    fun init() {
+        verifier =
+            GoogleIdTokenVerifier
+                .Builder(transport, jsonFactory)
+                .setAudience(listOf(googleClientId))
+                .build()
     }
-    fun verifyGoogleToken(idTokenString: String): AuthResponse{
-        val idToken = verifier.verify(idTokenString)
-            ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다")
+
+    fun verifyGoogleToken(idTokenString: String): AuthResponse {
+        val idToken =
+            verifier.verify(idTokenString)
+                ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다")
         val email = idToken.payload.email
         return processUserLoginOrSignup(email)
     }
+
     @Transactional
     fun processUserLoginOrSignup(email: String): AuthResponse {
         val existingUser = userRepository.findByEmail(email)
