@@ -2,17 +2,20 @@ spring:
   application:
     name: backend
 
-  # 1. 데이터베이스 설정 (JPA 에러 방지용)
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
+    url: jdbc:postgresql://localhost:5432/postgres
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: your_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # 2. 구글 OAuth2 설정 (이 경로가 정확해야 에러가 안 납니다)
   security:
     oauth2:
       client:
@@ -21,15 +24,12 @@ spring:
             # GCP 콘솔에서 발급받은 값 입력
             client-id: "enter_your_client_id"
             client-secret: "enter_your_client_secret"
-            # 요청할 권한 범위
             scope:
               - profile
               - email
-            # 스프링 시큐리티 기본 리다이렉트 경로
             redirect-uri: "{baseUrl}/login/oauth2/code/google"
             authorization-grant-type: authorization_code
 
-# 3. 사용자 정의 JWT 설정 (AuthService에서 사용 중인 값)
 jwt:
   secret: ${JWT_SECRET_KEY:default_secret_key_over_32_characters_long}
   access-expiration: 3600000        # 1시간
