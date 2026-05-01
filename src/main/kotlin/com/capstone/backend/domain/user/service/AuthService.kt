@@ -11,6 +11,7 @@ import com.capstone.backend.global.util.JwtUtil
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
+import jakarta.annotation.PostConstruct
 import jakarta.transaction.Transactional
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -23,17 +24,24 @@ class AuthService(
     private val jwtUtil: JwtUtil,
     private val refreshTokenRepository: RefreshTokenRepository,
 ) {
-    @Transactional
-    fun verifyGoogleToken(idTokenString: String): AuthResponse {
-        val verifier =
-            GoogleIdTokenVerifier
-                .Builder(NetHttpTransport(), GsonFactory.getDefaultInstance())
-                .setAudience(listOf(googleClientId))
-                .build()
-        val idToken =
-            verifier.verify(idTokenString)
-                ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다.")
+
+    private val transport = NetHttpTransport()
+    private val jsonFactory = GsonFactory.getDefaultInstance()
+    private lateinit var verifier: GoogleIdTokenVerifier
+    @PostConstruct
+    fun init(){
+        verifier = GoogleIdTokenVerifier.Builder(transport,jsonFactory)
+            .setAudience(listOf(googleClientId))
+            .build()
+    }
+    fun verifyGoogleToken(idTokenString: String): AuthResponse{
+        val idToken = verifier.verify(idTokenString)
+            ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다")
         val email = idToken.payload.email
+        return processUserLoginOrSignup(email)
+    }
+    @Transactional
+    fun processUserLoginOrSignup(email: String): AuthResponse {
         val existingUser = userRepository.findByEmail(email)
 
         return if (existingUser != null) {
