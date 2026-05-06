@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface ReferenceModelRepository : JpaRepository<ReferenceModel, Long> {
-    fun findAllByPitchType(pitchType: String): List<ReferenceModel>
+    fun findById(id: String): List<ReferenceModel>
 }
