@@ -9,10 +9,10 @@ import org.springframework.web.reactive.function.client.WebClient
 @Configuration
 class WebClientConfig {
     @Bean
-    fun pythonWebClient(): WebClient {
-        return WebClient.builder()
+    fun pythonWebClient(): WebClient =
+        WebClient
+            .builder()
             .baseUrl("http://your-python-server-address:8000")
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build()
-    }
 }

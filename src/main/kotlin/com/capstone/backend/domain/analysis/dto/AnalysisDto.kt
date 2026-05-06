@@ -6,10 +6,8 @@ data class AnalysisResponse(
     val videoId: String,
     val status: String,
     @JsonProperty("user_data")
-    val userData: UserDataDto
+    val userData: UserDataDto,
 )
-
-
 
 data class UserDataDto(
     @JsonProperty("skeleton_data_id")
@@ -20,7 +18,7 @@ data class UserDataDto(
     val frameCount: Int,
     val fps: Int,
     val resolution: String,
-    val players: List<PlayerAnalysisDto>
+    val players: List<PlayerAnalysisDto>,
 )
 
 data class ReferenceDataResponse(
@@ -28,14 +26,14 @@ data class ReferenceDataResponse(
     val pitcherName: String,
     val pitchType: String,
     @JsonProperty("skeleton_data")
-    val skeletonData: String
+    val skeletonData: String,
 )
 
 data class PlayerAnalysisDto(
     val analysisId: String,
-    val proId: Long, // ReferenceModel의 ID와 매핑됩니다[cite: 2, 4]
+    val proId: Long,
     val overallScore: Double,
-    val phaseScores: List<PhaseScoreDto>
+    val phaseScores: List<PhaseScoreDto>,
 )
 
 data class PhaseScoreDto(
@@ -45,7 +43,7 @@ data class PhaseScoreDto(
     val userStartFrame: Int,
     val userEndFrame: Int,
     val proStartFrame: Int,
-    val proEndFrame: Int
+    val proEndFrame: Int,
 )
 
 data class VideoDetail(
@@ -54,5 +52,5 @@ data class VideoDetail(
     val durationSec: Double,
     val width: Int,
     val height: Int,
-    val playerName: String? = null // 프로 투수 데이터일 경우에만 존재
+    val playerName: String? = null,
 )

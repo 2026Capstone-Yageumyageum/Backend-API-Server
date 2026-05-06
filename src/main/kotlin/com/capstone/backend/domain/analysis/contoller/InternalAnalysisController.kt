@@ -9,10 +9,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/internal/analysis")
 class InternalAnalysisController(
-    private val analysisService: AnalysisService
+    private val analysisService: AnalysisService,
 ) {
     @GetMapping("/reference-models")
-    fun getReferenceModelsForCache(): List<ReferenceDataResponse> {
-        return analysisService.getAllReferenceData()
-    }
+    fun getReferenceModelsForCache(): List<ReferenceDataResponse> = analysisService.getAllReferenceData()
 }
