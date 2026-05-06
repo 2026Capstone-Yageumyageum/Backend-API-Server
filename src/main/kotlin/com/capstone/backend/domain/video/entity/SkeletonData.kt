@@ -14,7 +14,7 @@ class SkeletonData(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     @Column(name = "skeleton_data", columnDefinition = "jsonb", nullable = false)
-    val SkeletonData: String,
+    val skeletonData: String,
     @Column(name = "frame_count", nullable = false)
     val frameCount: Int,
     @Column(nullable = false)
