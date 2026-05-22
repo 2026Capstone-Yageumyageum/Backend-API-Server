@@ -46,6 +46,19 @@ data class PhaseScoreDto(
     val proEndFrame: Int,
 )
 
+data class AnalysisResultResponse(
+    val videoId: Long,
+    val status: String,
+    val results: List<PitchingComparisonDto>
+)
+
+data class PitchingComparisonDto(
+    val proName: String,
+    val pitchType: String,
+    val similarityScore: Double,
+    val feedback: String?
+)
+
 data class VideoDetail(
     val videoId: String,
     val fps: Int,
