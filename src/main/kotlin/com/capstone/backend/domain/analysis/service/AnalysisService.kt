@@ -31,17 +31,12 @@ class AnalysisService(
         userVideo: UserVideo,
         videoResource: Resource,
     ): Mono<List<AnalysisResult>> {
-        val videoId = userVideo.id?.toString() ?: throw IllegalArgumentException("저장되지 않은 영상은 분석할 수 없습니다")
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
-        bodyBuilder.part(
-            "metadata",
-            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","user":{"videoId":"$videoId"}}""",
-        )
 
         return pythonWebClient
             .post()
-            .uri("/api/analyze")
+            .uri("/api/analysis")
             .contentType(MediaType.MULTIPART_FORM_DATA)
             .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
             .retrieve()
@@ -66,20 +61,13 @@ class AnalysisService(
                 userVideo.skeletonData = userSkeleton
                 userVideoRepository.save(userVideo)
 
-                val top3ProIds =
-                    response.players.map { playerDto ->
-                        playerDto.proId.toLongOrNull()
-                            ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
-                    }
+                val top3ProIds = userData.players.map { it.proId }
                 val referenceModels = referenceModelRepository.findAllById(top3ProIds)
 
                 val analysisResult =
-                    response.players.map { playerDto ->
-                        val proId =
-                            playerDto.proId.toLongOrNull()
-                                ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
+                    userData.players.map { playerDto ->
                         val matchedProModel =
-                            referenceModels.find { it.id == proId }
+                            referenceModels.find { it.id == playerDto.proId }
                                 ?: throw IllegalArgumentException("DB에 존재하지 않는 프로 선수 ID 반환됨: ${playerDto.proId}")
                         AnalysisResult(
                             similarityScore = playerDto.overallScore,

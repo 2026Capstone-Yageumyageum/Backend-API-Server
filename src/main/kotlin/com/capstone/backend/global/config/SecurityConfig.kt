@@ -29,7 +29,6 @@ class SecurityConfig(
                         "/oauth2/**",
                         "/error",
                         "/api/auth/**",
-                        "/api/internal/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
