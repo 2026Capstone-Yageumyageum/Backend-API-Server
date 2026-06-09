@@ -7,6 +7,7 @@ data class AnalysisResponse(
     val status: String,
     @JsonProperty("user_data")
     val userData: UserDataDto,
+    val players: List<PlayerAnalysisDto>,
 )
 
 data class UserDataDto(
@@ -16,9 +17,8 @@ data class UserDataDto(
     val skeletonDataCsv: String,
     @JsonProperty("frame_count")
     val frameCount: Int,
-    val fps: Int,
+    val fps: Double,
     val resolution: String,
-    val players: List<PlayerAnalysisDto>,
 )
 
 data class ReferenceDataResponse(
@@ -31,7 +31,7 @@ data class ReferenceDataResponse(
 
 data class PlayerAnalysisDto(
     val analysisId: String,
-    val proId: Long,
+    val proId: String,
     val overallScore: Double,
     val phaseScores: List<PhaseScoreDto>,
 )
@@ -48,7 +48,7 @@ data class PhaseScoreDto(
 
 data class VideoDetail(
     val videoId: String,
-    val fps: Int,
+    val fps: Double,
     val durationSec: Double,
     val width: Int,
     val height: Int,
