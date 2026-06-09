@@ -7,7 +7,7 @@ data class AnalysisResponse(
     val status: String,
     @JsonProperty("user_data")
     val userData: UserDataDto,
-    val players: List<PlayerAnalysisDto>
+    val players: List<PlayerAnalysisDto>,
 )
 
 data class UserDataDto(
@@ -31,7 +31,7 @@ data class ReferenceDataResponse(
 
 data class PlayerAnalysisDto(
     val analysisId: String,
-    val proId: Long,
+    val proId: String,
     val overallScore: Double,
     val phaseScores: List<PhaseScoreDto>,
     val release: ReleaseDto? = null,
@@ -51,19 +51,19 @@ data class PhaseScoreDto(
 data class AnalysisResultResponse(
     val videoId: Long,
     val status: String,
-    val results: List<PitchingComparisonDto>
+    val results: List<PitchingComparisonDto>,
 )
 
 data class PitchingComparisonDto(
     val proName: String,
     val pitchType: String,
     val similarityScore: Double,
-    val feedback: String?
+    val feedback: String?,
 )
 
 data class VideoDetail(
     val videoId: String,
-    val fps: Int,
+    val fps: Double,
     val durationSec: Double,
     val width: Int,
     val height: Int,
@@ -76,7 +76,7 @@ data class ReleaseDto(
     val pro: ReleaseFrameInfo?,
     val user: ReleaseFrameInfo?,
     val timing: ReleaseTimingDto,
-    val point: ReleasePointDto
+    val point: ReleasePointDto,
 )
 
 data class ReleaseFrameInfo(
@@ -85,32 +85,32 @@ data class ReleaseFrameInfo(
     val exitFrame: Double,
     val method: String,
     val status: String,
-    val source: String
+    val source: String,
 )
 
 data class ReleaseTimingDto(
     val proPitchPercent: Double,
     val userPitchPercent: Double,
     val differencePercent: Double,
-    val message: String
+    val message: String,
 )
 
 data class ReleasePointDto(
     val difference: Double,
     val heightDifference: Double,
     val sideDifference: Double,
-    val message: String
+    val message: String,
 )
 
 data class FeedbackDto(
     val good: List<FeedbackItemDto>,
-    val bad: List<FeedbackItemDto>
+    val bad: List<FeedbackItemDto>,
 )
 
 data class FeedbackItemDto(
     val phase: String,
     val message: String,
-    val evidence: FeedbackEvidenceDto?
+    val evidence: FeedbackEvidenceDto?,
 )
 
 data class FeedbackEvidenceDto(
@@ -119,5 +119,5 @@ data class FeedbackEvidenceDto(
     val proPhasePercent: Double,
     val userPhasePercent: Double,
     val differencePercent: Double,
-    val difference: Double
+    val difference: Double,
 )
