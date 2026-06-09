@@ -37,10 +37,19 @@ class AnalysisService(
             .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
+        val metadataJson = """
+            {
+                "videoId": "$videoId",
+                "analysisType": "pro_similarity",
+                "pitchType": "직구",
+                "cameraView": "rear"
+            }
+        """.trimIndent()
+        bodyBuilder.part("metadata", metadataJson, org.springframework.http.MediaType.APPLICATION_JSON)
 
         return pythonWebClient
             .post()
-            .uri("/api/analysis")
+            .uri("/api/analyze/similarity")
             .contentType(MediaType.MULTIPART_FORM_DATA)
             .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
             .retrieve()
@@ -66,11 +75,11 @@ class AnalysisService(
                 userVideo.status = "COMPLETED"
                 userVideoRepository.save(userVideo)
 
-                val top3ProIds = userData.players.map { it.proId }
+                val top3ProIds = response.players.map { it.proId }
                 val referenceModels = referenceModelRepository.findAllById(top3ProIds)
 
                 val analysisResult =
-                    userData.players.map { playerDto ->
+                    response.players.map { playerDto ->
                         val matchedProModel =
                             referenceModels.find { it.id == playerDto.proId }
                                 ?: throw IllegalArgumentException("DB에 존재하지 않는 프로 선수 ID 반환됨: ${playerDto.proId}")

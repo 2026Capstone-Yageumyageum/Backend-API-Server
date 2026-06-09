@@ -13,12 +13,13 @@ class SkeletonData(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "skeleton_data", columnDefinition = "jsonb", nullable = false)
     val skeletonData: String,
     @Column(name = "frame_count", nullable = false)
     val frameCount: Int,
     @Column(nullable = false)
-    val fps: Int,
+    val fps: Double,
     @Column(length = 20)
     val resolution: String?,
 )

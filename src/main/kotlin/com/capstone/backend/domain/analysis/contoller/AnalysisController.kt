@@ -18,7 +18,7 @@ import reactor.core.publisher.Mono
 class AnalysisController(
     private val analysisService: AnalysisService,
 ) {
-    @PostMapping("/{videoId}") // 분석 요청 API
+    @PostMapping("/{videoId}", consumes = [org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE]) // 분석 요청 API
     fun analysisPitching(
         @PathVariable videoId: Long,
         @RequestPart("file") file: MultipartFile,

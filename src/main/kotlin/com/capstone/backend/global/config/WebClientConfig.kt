@@ -12,7 +12,7 @@ class WebClientConfig {
     fun pythonWebClient(): WebClient =
         WebClient
             .builder()
-            .baseUrl("http://your-python-server-address:8000")
+            .baseUrl("http://localhost:5020")
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build()
 }
