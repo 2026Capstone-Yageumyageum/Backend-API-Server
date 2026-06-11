@@ -18,28 +18,27 @@ import reactor.core.publisher.Mono
 class AnalysisController(
     private val analysisService: AnalysisService,
 ) {
-    @PostMapping("/{videoId}") // 분석 요청 API
+    @PostMapping("/{videoId}", consumes = [org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE]) // 분석 요청 API
     fun analysisPitching(
         @PathVariable videoId: Long,
         @RequestPart("file") file: MultipartFile,
-    ): Mono<ResponseEntity<Map<String, String>>> {
-        return analysisService
+    ): Mono<ResponseEntity<Map<String, String>>> =
+        analysisService
             .requestPitchingAnalysisAsync(videoId, file.resource)
             .map {
                 ResponseEntity.accepted().body(mapOf("message" to "분석 요청이 수락되었습니다. 잠시만 기다려주세요"))
             }
-    }
+
     @GetMapping("/{videoId}/result") // 분석 결과 조회 API
-    fun getAnalysisResult(@PathVariable videoId: Long): ResponseEntity<AnalysisResultResponse> {
-        return ResponseEntity.ok(analysisService.getAnalysisResult(videoId))
-    }
+    fun getAnalysisResult(
+        @PathVariable videoId: Long,
+    ): ResponseEntity<AnalysisResultResponse> = ResponseEntity.ok(analysisService.getAnalysisResult(videoId))
+
     @GetMapping("/{videoId}/skeleton") // 스켈레톤 데이터 조회 API
-    fun getSkeletonData(@PathVariable videoId: Long): ResponseEntity<Map<String, Any>> {
-        return ResponseEntity.ok(analysisService.getSkeletonData(videoId))
-    }
+    fun getSkeletonData(
+        @PathVariable videoId: Long,
+    ): ResponseEntity<Map<String, Any>> = ResponseEntity.ok(analysisService.getSkeletonData(videoId))
 
     @GetMapping("/reference-data")
-    fun getAllReferenceData(): ResponseEntity<List<ReferenceDataResponse>> {
-        return ResponseEntity.ok(analysisService.getAllReferenceData())
-    }
+    fun getAllReferenceData(): ResponseEntity<List<ReferenceDataResponse>> = ResponseEntity.ok(analysisService.getAllReferenceData())
 }

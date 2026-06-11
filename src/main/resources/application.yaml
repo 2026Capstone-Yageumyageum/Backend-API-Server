@@ -15,7 +15,10 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
   security:
     oauth2:
       client:

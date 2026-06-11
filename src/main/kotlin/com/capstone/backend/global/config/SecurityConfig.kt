@@ -33,16 +33,19 @@ class SecurityConfig(
                         "/oauth2/**",
                         "/error",
                         "/api/auth/**",
+                        "/api/internal/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
                         "/webjars/**",
+                        "/api/analysis/**",
                     ).permitAll()
                     .anyRequest()
                     .authenticated()
             }.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
+
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()

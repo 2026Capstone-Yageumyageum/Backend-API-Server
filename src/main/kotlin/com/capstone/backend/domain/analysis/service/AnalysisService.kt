@@ -8,9 +8,9 @@ import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
 import com.capstone.backend.domain.analysis.repository.ReferenceModelRepository
 import com.capstone.backend.domain.video.entity.SkeletonData
-import jakarta.persistence.EntityNotFoundException
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
 import com.capstone.backend.domain.video.repository.UserVideoRepository
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.core.io.Resource
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
@@ -33,14 +33,19 @@ class AnalysisService(
         videoId: Long,
         videoResource: Resource,
     ): Mono<List<AnalysisResult>> {
-        val userVideo = userVideoRepository.findById(videoId)
-            .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
+        val userVideo =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
+        val metadataJson =
+            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","user":{"videoId":"$videoId"}}"""
+        bodyBuilder.part("metadata", metadataJson, MediaType.APPLICATION_JSON)
 
         return pythonWebClient
             .post()
-            .uri("/api/analysis")
+            .uri("/api/analyze")
             .contentType(MediaType.MULTIPART_FORM_DATA)
             .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
             .retrieve()
@@ -66,13 +71,20 @@ class AnalysisService(
                 userVideo.status = "COMPLETED"
                 userVideoRepository.save(userVideo)
 
-                val top3ProIds = userData.players.map { it.proId }
+                val top3ProIds =
+                    response.players.map { playerDto ->
+                        playerDto.proId.toLongOrNull()
+                            ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
+                    }
                 val referenceModels = referenceModelRepository.findAllById(top3ProIds)
 
                 val analysisResult =
-                    userData.players.map { playerDto ->
+                    response.players.map { playerDto ->
+                        val proId =
+                            playerDto.proId.toLongOrNull()
+                                ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
                         val matchedProModel =
-                            referenceModels.find { it.id == playerDto.proId }
+                            referenceModels.find { it.id == proId }
                                 ?: throw IllegalArgumentException("DB에 존재하지 않는 프로 선수 ID 반환됨: ${playerDto.proId}")
                         AnalysisResult(
                             similarityScore = playerDto.overallScore,
@@ -101,32 +113,39 @@ class AnalysisService(
             )
         }
     }
+
     @Transactional(readOnly = true)
     fun getAnalysisResult(videoId: Long): AnalysisResultResponse {
-        val userVideo = userVideoRepository.findById(videoId)
-            .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+        val userVideo =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
 
-        val results = analysisResultRepository.findByUserVideoId(videoId).map{
-            PitchingComparisonDto(
-                proName = it.referenceModel.pitcherName,
-                pitchType = it.referenceModel.pitchType,
-                similarityScore = it.similarityScore,
-                feedback = it.feedbackText
-            )
-        }
+        val results =
+            analysisResultRepository.findByUserVideoId(videoId).map {
+                PitchingComparisonDto(
+                    proName = it.referenceModel.pitcherName,
+                    pitchType = it.referenceModel.pitchType,
+                    similarityScore = it.similarityScore,
+                    feedback = it.feedbackText,
+                )
+            }
         return AnalysisResultResponse(
-                videoId = videoId,
-                status = userVideo.status,
-                results = results
+            videoId = videoId,
+            status = userVideo.status,
+            results = results,
         )
     }
+
     @Transactional(readOnly = true)
     fun getSkeletonData(videoId: Long): Map<String, Any> {
-        val userVideo = userVideoRepository.findById(videoId)
-            .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+        val userVideo =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
         return mapOf(
             "skeletonData" to (userVideo.skeletonData?.skeletonData ?: ""),
-            "frameCount" to (userVideo.skeletonData?.frameCount ?: 0)
+            "frameCount" to (userVideo.skeletonData?.frameCount ?: 0),
         )
     }
 }
