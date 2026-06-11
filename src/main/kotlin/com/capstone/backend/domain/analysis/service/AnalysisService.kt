@@ -1,12 +1,14 @@
 package com.capstone.backend.domain.analysis.service
 
 import com.capstone.backend.domain.analysis.dto.AnalysisResponse
+import com.capstone.backend.domain.analysis.dto.AnalysisResultResponse
+import com.capstone.backend.domain.analysis.dto.PitchingComparisonDto
 import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
 import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
 import com.capstone.backend.domain.analysis.repository.ReferenceModelRepository
 import com.capstone.backend.domain.video.entity.SkeletonData
-import com.capstone.backend.domain.video.entity.UserVideo
+import jakarta.persistence.EntityNotFoundException
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
 import com.capstone.backend.domain.video.repository.UserVideoRepository
 import org.springframework.core.io.Resource
@@ -28,9 +30,11 @@ class AnalysisService(
     private val userVideoRepository: UserVideoRepository,
 ) {
     fun requestPitchingAnalysisAsync(
-        userVideo: UserVideo,
+        videoId: Long,
         videoResource: Resource,
     ): Mono<List<AnalysisResult>> {
+        val userVideo = userVideoRepository.findById(videoId)
+            .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
 
@@ -59,6 +63,7 @@ class AnalysisService(
                     )
 
                 userVideo.skeletonData = userSkeleton
+                userVideo.status = "COMPLETED"
                 userVideoRepository.save(userVideo)
 
                 val top3ProIds = userData.players.map { it.proId }
@@ -79,6 +84,8 @@ class AnalysisService(
                 analysisResultRepository.saveAll(analysisResult)
             }.doOnError { error ->
                 println("비동기 AI 분석 중 치명적 에러: ${error.message}")
+                userVideo.status = "FAILED"
+                userVideoRepository.save(userVideo)
             }
     }
 
@@ -93,5 +100,33 @@ class AnalysisService(
                 skeletonData = model.skeletonData.skeletonData,
             )
         }
+    }
+    @Transactional(readOnly = true)
+    fun getAnalysisResult(videoId: Long): AnalysisResultResponse {
+        val userVideo = userVideoRepository.findById(videoId)
+            .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+
+        val results = analysisResultRepository.findByUserVideoId(videoId).map{
+            PitchingComparisonDto(
+                proName = it.referenceModel.pitcherName,
+                pitchType = it.referenceModel.pitchType,
+                similarityScore = it.similarityScore,
+                feedback = it.feedbackText
+            )
+        }
+        return AnalysisResultResponse(
+                videoId = videoId,
+                status = userVideo.status,
+                results = results
+        )
+    }
+    @Transactional(readOnly = true)
+    fun getSkeletonData(videoId: Long): Map<String, Any> {
+        val userVideo = userVideoRepository.findById(videoId)
+            .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+        return mapOf(
+            "skeletonData" to (userVideo.skeletonData?.skeletonData ?: ""),
+            "frameCount" to (userVideo.skeletonData?.frameCount ?: 0)
+        )
     }
 }
