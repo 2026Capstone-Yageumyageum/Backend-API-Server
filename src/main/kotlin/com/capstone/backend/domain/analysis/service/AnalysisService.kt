@@ -7,9 +7,12 @@ import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
 import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
 import com.capstone.backend.domain.analysis.repository.ReferenceModelRepository
+import com.capstone.backend.domain.user.repository.UserRepository
 import com.capstone.backend.domain.video.entity.SkeletonData
+import com.capstone.backend.domain.video.entity.UserVideo
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
 import com.capstone.backend.domain.video.repository.UserVideoRepository
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.persistence.EntityNotFoundException
 import org.springframework.core.io.Resource
 import org.springframework.http.MediaType
@@ -28,7 +31,30 @@ class AnalysisService(
     private val referenceModelRepository: ReferenceModelRepository,
     private val skeletonDataRepository: SkeletonDataRepository,
     private val userVideoRepository: UserVideoRepository,
+    private val userRepository: UserRepository,
 ) {
+    private val objectMapper = ObjectMapper()
+
+    // 원샷 업로드용: 분석 전에 PENDING 상태의 UserVideo를 먼저 만들어 videoId를 확보한다.
+    @Transactional
+    fun createPendingVideo(
+        userId: Long,
+        sourceLabel: String?,
+        pitchType: String,
+    ): UserVideo {
+        val user =
+            userRepository
+                .findById(userId)
+                .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다.") }
+        return userVideoRepository.save(
+            UserVideo(
+                user = user,
+                videoUrl = sourceLabel?.takeIf { it.isNotBlank() } ?: "client_local_video",
+                pitchType = pitchType,
+            ),
+        )
+    }
+
     fun requestPitchingAnalysisAsync(
         videoId: Long,
         videoResource: Resource,
@@ -39,8 +65,10 @@ class AnalysisService(
                 .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
+        // maxFrames=360: 전체 프레임 대신 360프레임 균등 샘플링으로 추출해 속도 개선
+        // (프로 레퍼런스도 360프레임 균등 샘플링으로 추출되어 비교 일관성도 유지)
         val metadataJson =
-            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","user":{"videoId":"$videoId"}}"""
+            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","pitchType":"${userVideo.pitchType}","maxFrames":360,"user":{"videoId":"$videoId"}}"""
         bodyBuilder.part("metadata", metadataJson, MediaType.APPLICATION_JSON)
 
         return pythonWebClient
@@ -89,6 +117,7 @@ class AnalysisService(
                         AnalysisResult(
                             similarityScore = playerDto.overallScore,
                             feedbackText = "분석 완료 (구간 수: ${playerDto.phaseScores.size})",
+                            detailJson = objectMapper.writeValueAsString(playerDto),
                             userVideo = userVideo,
                             referenceModel = matchedProModel,
                         )
@@ -124,10 +153,12 @@ class AnalysisService(
         val results =
             analysisResultRepository.findByUserVideoId(videoId).map {
                 PitchingComparisonDto(
+                    proId = it.referenceModel.id!!,
                     proName = it.referenceModel.pitcherName,
                     pitchType = it.referenceModel.pitchType,
                     similarityScore = it.similarityScore,
                     feedback = it.feedbackText,
+                    detailJson = it.detailJson,
                 )
             }
         return AnalysisResultResponse(

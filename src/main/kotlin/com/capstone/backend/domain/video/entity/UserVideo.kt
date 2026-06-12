@@ -23,6 +23,10 @@ class UserVideo(
     val videoUrl: String,
     @Column(nullable = false, length = 20)
     var status: String = "PENDING",
+    // 사용자가 카메라에서 선택한 구종 (직구/슬라이더/커브/체인지업)
+    // 기존 행에도 추가될 수 있도록 nullable. 값이 없으면 코드에서 "직구"로 간주한다.
+    @Column(name = "pitch_type", length = 20)
+    var pitchType: String? = null,
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     val uploadedAt: LocalDateTime = LocalDateTime.now(),
     @ManyToOne(fetch = FetchType.LAZY)

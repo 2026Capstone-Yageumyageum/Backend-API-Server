@@ -22,6 +22,9 @@ class AnalysisResult(
     val similarityScore: Double,
     @Column(name = "feedback_text", columnDefinition = "TEXT")
     val feedbackText: String?,
+    // 파이썬이 보낸 player 원본(phaseScores·release·feedback)을 JSON 문자열로 보관 (리포트 상세용)
+    @Column(name = "detail_json", columnDefinition = "TEXT")
+    val detailJson: String? = null,
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     @ManyToOne(fetch = FetchType.LAZY)

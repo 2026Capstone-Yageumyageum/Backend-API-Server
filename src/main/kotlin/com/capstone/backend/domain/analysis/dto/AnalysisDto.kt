@@ -55,10 +55,13 @@ data class AnalysisResultResponse(
 )
 
 data class PitchingComparisonDto(
+    val proId: Long,
     val proName: String,
     val pitchType: String,
     val similarityScore: Double,
     val feedback: String?,
+    // 파이썬 player 원본(phaseScores·release·feedback) JSON 문자열. 프론트가 JSON.parse 하여 리포트 상세에 사용.
+    val detailJson: String?,
 )
 
 data class VideoDetail(

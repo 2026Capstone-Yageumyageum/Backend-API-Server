@@ -135,29 +135,50 @@ class InternalAnalysisController(
     ): Map<String, Any> {
         val content = String(jsonFile.bytes, Charsets.UTF_8)
         val objectMapper = ObjectMapper()
-        val rootArray = objectMapper.readTree(content)
+        val root = objectMapper.readTree(content)
 
-        if (!rootArray.isArray) {
-            throw IllegalArgumentException("파일이 JSON 배열 형식이 아닙니다.")
-        }
+        // 최상위가 배열이면 그대로, 객체면 items/proSkeletonData/... 안의 배열을 사용
+        val items =
+            when {
+                root.isArray -> root
+                root.isObject ->
+                    listOf("items", "proSkeletonData", "pro_skeleton_data", "players", "data")
+                        .firstNotNullOfOrNull { key -> root.get(key)?.takeIf { it.isArray } }
+                        ?: throw IllegalArgumentException("JSON 객체에서 items 배열을 찾지 못했습니다.")
+                else -> throw IllegalArgumentException("지원하지 않는 JSON 형식입니다.")
+            }
 
         var successCount = 0
-        for (node in rootArray) {
+        for (node in items) {
             val playerName = node.get("playerName")?.asText() ?: "알 수 없음"
-            val skeletonDataCsv = node.get("skeleton_data")?.asText() ?: continue
+            // camelCase(skeletonData) / snake_case(skeleton_data) / keypointsCsvText 모두 허용
+            val skeletonDataCsv =
+                (
+                    node.get("skeletonData")
+                        ?: node.get("skeleton_data")
+                        ?: node.get("keypointsCsvText")
+                )?.asText() ?: continue
             val pitchType = node.get("pitchType")?.asText() ?: "직구" // 없으면 기본값 직구
 
-            // CSV 라인 수로 프레임 수 자동 계산
-            val lines = skeletonDataCsv.split("\n", "\r\n").filter { it.isNotBlank() }
-            val frameCount = if (lines.isNotEmpty()) lines.size - 1 else 0
+            // metadata에 실제 값이 있으면 사용, 없으면 fallback
+            val metadata = node.get("metadata")?.takeIf { it.isObject }
+            val frameCount =
+                metadata?.get("frameCount")?.takeIf { it.isNumber }?.asInt()
+                    ?: run {
+                        // CSV 라인 수로 프레임 수 자동 계산 (header 1줄 제외)
+                        val lines = skeletonDataCsv.split("\n", "\r\n").filter { it.isNotBlank() }
+                        if (lines.isNotEmpty()) lines.size - 1 else 0
+                    }
+            val fps = metadata?.get("fps")?.takeIf { it.isNumber }?.asDouble() ?: 60.0
+            val resolution = metadata?.get("resolution")?.asText()?.takeIf { it.isNotBlank() } ?: "1920x1080"
 
             val skeleton =
                 skeletonDataRepository.save(
                     SkeletonData(
                         skeletonData = skeletonDataCsv,
                         frameCount = frameCount,
-                        fps = 60.0, // 기본값
-                        resolution = "1920x1080",
+                        fps = fps,
+                        resolution = resolution,
                     ),
                 )
             referenceModelRepository.save(
