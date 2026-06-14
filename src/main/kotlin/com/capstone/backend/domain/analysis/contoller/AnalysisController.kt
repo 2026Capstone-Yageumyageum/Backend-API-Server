@@ -29,6 +29,8 @@ class AnalysisController(
         @AuthenticationPrincipal userId: Long?,
         @RequestPart("file") file: MultipartFile,
         @org.springframework.web.bind.annotation.RequestParam(required = false) pitchType: String?,
+        @org.springframework.web.bind.annotation.RequestParam(required = false) startSec: Double?,
+        @org.springframework.web.bind.annotation.RequestParam(required = false) endSec: Double?,
     ): ResponseEntity<Map<String, Any>> {
         val resolvedUserId = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
 
@@ -49,7 +51,7 @@ class AnalysisController(
             )
 
         analysisService
-            .requestPitchingAnalysisAsync(video.id!!, FileSystemResource(tempFile))
+            .requestPitchingAnalysisAsync(video.id!!, FileSystemResource(tempFile), startSec, endSec)
             .doFinally { Files.deleteIfExists(tempFile) }
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe()

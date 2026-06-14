@@ -7,4 +7,13 @@ import org.springframework.stereotype.Repository
 @Repository
 interface AnalysisResultRepository : JpaRepository<AnalysisResult, Long> {
     fun findByUserVideoId(userVideoId: Long): List<AnalysisResult>
+
+    // 특정 사용자의, 특정 프로(referenceModel)에 대한 모든 분석 결과 (프로별 점수 추이용)
+    fun findByUserVideo_User_IdAndReferenceModel_Id(
+        userId: Long,
+        referenceModelId: Long,
+    ): List<AnalysisResult>
+
+    // 특정 사용자의 모든 분석 결과 (비교된 프로 목록 추출용)
+    fun findByUserVideo_User_Id(userId: Long): List<AnalysisResult>
 }
