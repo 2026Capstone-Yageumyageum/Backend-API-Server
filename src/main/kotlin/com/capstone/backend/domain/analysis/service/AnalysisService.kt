@@ -58,6 +58,8 @@ class AnalysisService(
     fun requestPitchingAnalysisAsync(
         videoId: Long,
         videoResource: Resource,
+        trimStartSec: Double? = null,
+        trimEndSec: Double? = null,
     ): Mono<List<AnalysisResult>> {
         val userVideo =
             userVideoRepository
@@ -65,10 +67,16 @@ class AnalysisService(
                 .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
+        // 앱 트리머로 선택한 구간(초)이 있으면 Python이 그 구간만 분석하도록 전달한다.
+        val trimJson =
+            buildString {
+                if (trimStartSec != null) append(",\"userTrimStartSec\":$trimStartSec")
+                if (trimEndSec != null) append(",\"userTrimEndSec\":$trimEndSec")
+            }
         // maxFrames=360: 전체 프레임 대신 360프레임 균등 샘플링으로 추출해 속도 개선
         // (프로 레퍼런스도 360프레임 균등 샘플링으로 추출되어 비교 일관성도 유지)
         val metadataJson =
-            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","pitchType":"${userVideo.pitchType}","maxFrames":360,"user":{"videoId":"$videoId"}}"""
+            """{"videoId":"$videoId","analysisType":"pro_similarity","cameraView":"rear","pitchType":"${userVideo.pitchType}","maxFrames":360$trimJson,"user":{"videoId":"$videoId"}}"""
         bodyBuilder.part("metadata", metadataJson, MediaType.APPLICATION_JSON)
 
         return pythonWebClient
@@ -96,8 +104,6 @@ class AnalysisService(
                     )
 
                 userVideo.skeletonData = userSkeleton
-                userVideo.status = "COMPLETED"
-                userVideoRepository.save(userVideo)
 
                 val top3ProIds =
                     response.players.map { playerDto ->
@@ -122,7 +128,15 @@ class AnalysisService(
                             referenceModel = matchedProModel,
                         )
                     }
-                analysisResultRepository.saveAll(analysisResult)
+                val saved = analysisResultRepository.saveAll(analysisResult)
+
+                // 결과 행을 모두 저장한 '뒤에야' 상태를 COMPLETED로 전환한다.
+                // 이렇게 해야 폴링(getAnalysisResult)이 COMPLETED를 보는 순간 결과도 반드시 존재한다.
+                // (기존엔 status를 결과 저장 전에 COMPLETED로 먼저 커밋해, 그 사이에 폴링이 들어오면
+                //  결과 0건을 받아 프론트가 목업으로 폴백되던 간헐적 레이스가 있었다.)
+                userVideo.status = "COMPLETED"
+                userVideoRepository.save(userVideo)
+                saved
             }.doOnError { error ->
                 println("비동기 AI 분석 중 치명적 에러: ${error.message}")
                 userVideo.status = "FAILED"

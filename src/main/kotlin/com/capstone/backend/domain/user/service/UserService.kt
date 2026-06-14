@@ -4,6 +4,7 @@ import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
 import com.capstone.backend.domain.user.dto.GrowthPointResponse
 import com.capstone.backend.domain.user.dto.MyAnalysisItemResponse
 import com.capstone.backend.domain.user.dto.PitchDistributionResponse
+import com.capstone.backend.domain.user.dto.ProSummaryResponse
 import com.capstone.backend.domain.user.dto.UserProfileResponse
 import com.capstone.backend.domain.user.dto.UserStatsResponse
 import com.capstone.backend.domain.user.entity.User
@@ -101,6 +102,35 @@ class UserService(
                 pitchType = video.pitchType ?: "직구",
                 similarity = top.similarityScore.roundToInt(),
             )
+        }
+    }
+
+    // 내가 비교당한 프로 목록(중복 제거). 마이페이지 드롭다운용.
+    @Transactional(readOnly = true)
+    fun getComparedPros(userId: Long): List<ProSummaryResponse> =
+        analysisResultRepository
+            .findByUserVideo_User_Id(userId)
+            .map { it.referenceModel }
+            .distinctBy { it.id }
+            .map { ProSummaryResponse(proId = it.id!!, pitcherName = it.pitcherName) }
+
+    // 특정 프로에 대한 내 점수 변화 추이. 모든 분석 세션을 시간순(같은 날은 videoId 순)으로 점으로 찍는다.
+    // 같은 날짜 라벨이 연속되면 첫 점에만 라벨을 달아 x축이 지저분하지 않게 한다. 마이페이지 프로별 그래프용.
+    @Transactional(readOnly = true)
+    fun getProGrowth(
+        userId: Long,
+        proId: Long,
+    ): List<GrowthPointResponse> {
+        val sorted =
+            analysisResultRepository
+                .findByUserVideo_User_IdAndReferenceModel_Id(userId, proId)
+                .sortedWith(compareBy({ it.userVideo.uploadedAt }, { it.userVideo.id }))
+        var lastLabel: String? = null
+        return sorted.map {
+            val dateLabel = "${it.userVideo.uploadedAt.monthValue}/${it.userVideo.uploadedAt.dayOfMonth}"
+            val label = if (dateLabel == lastLabel) "" else dateLabel
+            lastLabel = dateLabel
+            GrowthPointResponse(label = label, value = it.similarityScore.roundToInt())
         }
     }
 

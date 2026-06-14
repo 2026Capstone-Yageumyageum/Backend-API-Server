@@ -111,16 +111,18 @@ data class FeedbackDto(
 )
 
 data class FeedbackItemDto(
-    val phase: String,
+    // 상세 코칭 피드백은 phase가 없을 수 있다(예: 전체 동작 기준 팁)
+    val phase: String? = null,
     val message: String,
-    val evidence: FeedbackEvidenceDto?,
+    val evidence: FeedbackEvidenceDto? = null,
 )
 
 data class FeedbackEvidenceDto(
-    val proFrame: Double,
-    val userFrame: Double,
-    val proPhasePercent: Double,
-    val userPhasePercent: Double,
-    val differencePercent: Double,
-    val difference: Double,
+    // 팁 종류에 따라 프레임/퍼센트 정보가 일부만 채워지므로 모두 nullable
+    val proFrame: Double? = null,
+    val userFrame: Double? = null,
+    val proPhasePercent: Double? = null,
+    val userPhasePercent: Double? = null,
+    val differencePercent: Double? = null,
+    val difference: Double? = null,
 )

@@ -37,3 +37,9 @@ data class MyAnalysisItemResponse(
     val pitchType: String,
     val similarity: Int, // 0~100
 )
+
+// 마이페이지 프로별 그래프 드롭다운용 (가벼운 프로 목록)
+data class ProSummaryResponse(
+    val proId: Long,
+    val pitcherName: String,
+)
