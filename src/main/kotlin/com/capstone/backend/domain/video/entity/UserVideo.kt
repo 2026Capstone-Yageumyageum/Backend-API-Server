@@ -27,6 +27,10 @@ class UserVideo(
     // 기존 행에도 추가될 수 있도록 nullable. 값이 없으면 코드에서 "직구"로 간주한다.
     @Column(name = "pitch_type", length = 20)
     var pitchType: String? = null,
+    // 사용자가 "최고의 1구"로 등록한 영상 여부. (user, pitchType)당 하나만 true가 되도록 서비스에서 관리한다.
+    // 기존 행에도 안전하게 추가되도록 DB 기본값 false 지정(ddl-auto=update).
+    @Column(name = "is_best_pitch", nullable = false, columnDefinition = "boolean default false")
+    var isBestPitch: Boolean = false,
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     val uploadedAt: LocalDateTime = LocalDateTime.now(),
     @ManyToOne(fetch = FetchType.LAZY)

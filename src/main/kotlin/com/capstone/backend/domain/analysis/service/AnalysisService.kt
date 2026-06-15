@@ -144,6 +144,122 @@ class AnalysisService(
             }
     }
 
+    // 영상을 (user, pitchType)의 "최고의 1구"로 등록한다. 같은 구종의 기존 best는 해제한다.
+    @Transactional
+    fun registerBestPitch(
+        userId: Long,
+        videoId: Long,
+    ) {
+        val video =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
+        require(video.user.id == userId) { "본인 영상만 최고의 1구로 등록할 수 있습니다." }
+        val pitchType = video.pitchType ?: "직구"
+        // 같은 구종의 기존 best 해제 (구종당 1개 유지)
+        userVideoRepository
+            .findFirstByUserAndPitchTypeAndIsBestPitchTrue(video.user, pitchType)
+            ?.takeIf { it.id != video.id }
+            ?.let {
+                it.isBestPitch = false
+                userVideoRepository.save(it)
+            }
+        video.isBestPitch = true
+        userVideoRepository.save(video)
+    }
+
+    // 내 영상을 내 "최고의 1구"와 비교 분석한다. 프로 캐시 대신 best 영상의 골격을 레퍼런스로 보낸다.
+    fun requestBestPitchAnalysisAsync(
+        videoId: Long,
+        videoResource: Resource,
+        bestPitchVideoId: Long,
+        trimStartSec: Double? = null,
+        trimEndSec: Double? = null,
+    ): Mono<List<AnalysisResult>> {
+        val userVideo =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
+        val bestPitch =
+            userVideoRepository
+                .findById(bestPitchVideoId)
+                .orElseThrow { EntityNotFoundException("비교할 최고의 1구 영상을 찾을 수 없습니다") }
+        val bestCsv =
+            bestPitch.skeletonData?.skeletonData?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("최고의 1구 영상의 골격 데이터가 없습니다. 먼저 분석을 완료해 주세요.")
+
+        // CSV에 콤마/줄바꿈이 들어 있어 문자열 결합이 위험하므로 metadata는 ObjectMapper로 직렬화한다.
+        val metadataMap =
+            linkedMapOf<String, Any?>(
+                "videoId" to videoId.toString(),
+                "analysisType" to "best_pitch_similarity",
+                "cameraView" to "rear",
+                "pitchType" to (userVideo.pitchType ?: "직구"),
+                "maxFrames" to 360,
+                "referenceSkeletons" to
+                    listOf(
+                        mapOf(
+                            "proId" to bestPitchVideoId.toString(),
+                            "skeleton_data" to bestCsv,
+                        ),
+                    ),
+            )
+        if (trimStartSec != null) metadataMap["userTrimStartSec"] = trimStartSec
+        if (trimEndSec != null) metadataMap["userTrimEndSec"] = trimEndSec
+        val metadataJson = objectMapper.writeValueAsString(metadataMap)
+
+        val bodyBuilder = MultipartBodyBuilder()
+        bodyBuilder.part("userVideo", videoResource)
+        bodyBuilder.part("metadata", metadataJson, MediaType.APPLICATION_JSON)
+
+        return pythonWebClient
+            .post()
+            .uri("/api/analyze")
+            .contentType(MediaType.MULTIPART_FORM_DATA)
+            .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+            .retrieve()
+            .bodyToMono(AnalysisResponse::class.java)
+            .publishOn(Schedulers.boundedElastic())
+            .map { response ->
+                if (response.status != "completed") {
+                    throw RuntimeException("AI 서버 분석 실패: 상태 이상")
+                }
+                val userData = response.userData
+                val userSkeleton =
+                    skeletonDataRepository.save(
+                        SkeletonData(
+                            skeletonData = userData.skeletonDataCsv,
+                            frameCount = userData.frameCount,
+                            fps = userData.fps,
+                            resolution = userData.resolution,
+                        ),
+                    )
+                userVideo.skeletonData = userSkeleton
+
+                val analysisResult =
+                    response.players.map { playerDto ->
+                        AnalysisResult(
+                            similarityScore = playerDto.overallScore,
+                            feedbackText = "최고의 1구 비교 완료 (구간 수: ${playerDto.phaseScores.size})",
+                            detailJson = objectMapper.writeValueAsString(playerDto),
+                            comparisonType = "BEST_PITCH",
+                            userVideo = userVideo,
+                            referenceModel = null,
+                            bestPitchVideo = bestPitch,
+                        )
+                    }
+                val saved = analysisResultRepository.saveAll(analysisResult)
+
+                userVideo.status = "COMPLETED"
+                userVideoRepository.save(userVideo)
+                saved
+            }.doOnError { error ->
+                println("최고의 1구 비교 분석 중 치명적 에러: ${error.message}")
+                userVideo.status = "FAILED"
+                userVideoRepository.save(userVideo)
+            }
+    }
+
     @Transactional(readOnly = true)
     fun getAllReferenceData(): List<ReferenceDataResponse> {
         val models = referenceModelRepository.findAll()
@@ -166,10 +282,12 @@ class AnalysisService(
 
         val results =
             analysisResultRepository.findByUserVideoId(videoId).map {
+                val ref = it.referenceModel
+                // BEST_PITCH 비교는 referenceModel이 null이므로 비교 대상 "최고의 1구" 정보로 채운다.
                 PitchingComparisonDto(
-                    proId = it.referenceModel.id!!,
-                    proName = it.referenceModel.pitcherName,
-                    pitchType = it.referenceModel.pitchType,
+                    proId = ref?.id ?: it.bestPitchVideo?.id ?: 0L,
+                    proName = ref?.pitcherName ?: "내 최고의 1구",
+                    pitchType = ref?.pitchType ?: (userVideo.pitchType ?: "직구"),
                     similarityScore = it.similarityScore,
                     feedback = it.feedbackText,
                     detailJson = it.detailJson,
