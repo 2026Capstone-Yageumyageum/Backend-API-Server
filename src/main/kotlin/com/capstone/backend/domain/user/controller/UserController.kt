@@ -8,6 +8,8 @@ import com.capstone.backend.domain.user.dto.ProSummaryResponse
 import com.capstone.backend.domain.user.dto.UserProfileResponse
 import com.capstone.backend.domain.user.dto.UserStatsResponse
 import com.capstone.backend.domain.user.service.UserService
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -23,7 +25,7 @@ class UserController(
     fun getMe(
         @AuthenticationPrincipal userId: Long?,
     ): ResponseEntity<UserProfileResponse> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getProfile(id))
     }
 
@@ -31,7 +33,7 @@ class UserController(
     fun getMyStats(
         @AuthenticationPrincipal userId: Long?,
     ): ResponseEntity<UserStatsResponse> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getStats(id))
     }
 
@@ -39,7 +41,7 @@ class UserController(
     fun getMyAnalyses(
         @AuthenticationPrincipal userId: Long?,
     ): ResponseEntity<List<MyAnalysisItemResponse>> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getMyAnalyses(id))
     }
 
@@ -48,7 +50,7 @@ class UserController(
     fun getComparedPros(
         @AuthenticationPrincipal userId: Long?,
     ): ResponseEntity<List<ProSummaryResponse>> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getComparedPros(id))
     }
 
@@ -57,7 +59,7 @@ class UserController(
     fun getBestPitches(
         @AuthenticationPrincipal userId: Long?,
     ): ResponseEntity<List<BestPitchCardResponse>> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getBestPitches(id))
     }
 
@@ -67,7 +69,7 @@ class UserController(
         @AuthenticationPrincipal userId: Long?,
         @org.springframework.web.bind.annotation.PathVariable pitchType: String,
     ): ResponseEntity<List<BestPitchComparisonItemResponse>> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getBestPitchComparisons(id, pitchType))
     }
 
@@ -77,7 +79,7 @@ class UserController(
         @AuthenticationPrincipal userId: Long?,
         @org.springframework.web.bind.annotation.RequestParam proId: Long,
     ): ResponseEntity<List<GrowthPointResponse>> {
-        val id = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val id = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(userService.getProGrowth(id, proId))
     }
 }

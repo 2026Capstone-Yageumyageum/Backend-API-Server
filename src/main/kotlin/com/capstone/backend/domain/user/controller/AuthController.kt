@@ -6,6 +6,7 @@ import com.capstone.backend.domain.user.dto.RefreshRequest
 import com.capstone.backend.domain.user.dto.SignupRequest
 import com.capstone.backend.domain.user.dto.TokenResponse
 import com.capstone.backend.domain.user.service.AuthService
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -19,7 +20,7 @@ class AuthController(
 ) {
     @PostMapping("/google")
     fun googleLogin(
-        @RequestBody request: GoogleLoginRequest,
+        @Valid @RequestBody request: GoogleLoginRequest,
     ): ResponseEntity<AuthResponse> {
         val response = authService.verifyGoogleToken(request.idToken)
         return ResponseEntity.ok(response)
@@ -27,7 +28,7 @@ class AuthController(
 
     @PostMapping("/signup")
     fun signup(
-        @RequestBody request: SignupRequest,
+        @Valid @RequestBody request: SignupRequest,
     ): ResponseEntity<AuthResponse> {
         val response = authService.signup(request)
         return ResponseEntity.ok(response)
@@ -35,7 +36,7 @@ class AuthController(
 
     @PostMapping("/refresh")
     fun refresh(
-        @RequestBody request: RefreshRequest,
+        @Valid @RequestBody request: RefreshRequest,
     ): ResponseEntity<TokenResponse> {
         val response = authService.refreshTokens(request.refreshToken)
         return ResponseEntity.ok(response)

@@ -12,8 +12,9 @@ import com.capstone.backend.domain.video.entity.SkeletonData
 import com.capstone.backend.domain.video.entity.UserVideo
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
 import com.capstone.backend.domain.video.repository.UserVideoRepository
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
 import com.fasterxml.jackson.databind.ObjectMapper
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.core.io.Resource
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
@@ -45,7 +46,7 @@ class AnalysisService(
         val user =
             userRepository
                 .findById(userId)
-                .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다.") }
+                .orElseThrow { BusinessException(ErrorCode.USER_NOT_FOUND) }
         return userVideoRepository.save(
             UserVideo(
                 user = user,
@@ -64,7 +65,7 @@ class AnalysisService(
         val userVideo =
             userVideoRepository
                 .findById(videoId)
-                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
         val bodyBuilder = MultipartBodyBuilder()
         bodyBuilder.part("userVideo", videoResource)
         // 앱 트리머로 선택한 구간(초)이 있으면 Python이 그 구간만 분석하도록 전달한다.
@@ -90,7 +91,7 @@ class AnalysisService(
             .publishOn(Schedulers.boundedElastic())
             .map { response ->
                 if (response.status != "completed") {
-                    throw RuntimeException("AI 서버 분석 실패: 상태 이상")
+                    throw BusinessException(ErrorCode.ANALYSIS_FAILED, "분석 서버가 완료 상태를 반환하지 않았습니다: ${response.status}")
                 }
                 val userData = response.userData
                 val userSkeleton =
@@ -108,7 +109,10 @@ class AnalysisService(
                 val top3ProIds =
                     response.players.map { playerDto ->
                         playerDto.proId.toLongOrNull()
-                            ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
+                            ?: throw BusinessException(
+                                ErrorCode.INVALID_ANALYSIS_RESPONSE,
+                                "분석 서버가 숫자가 아닌 프로 선수 ID를 반환했습니다: ${playerDto.proId}",
+                            )
                     }
                 val referenceModels = referenceModelRepository.findAllById(top3ProIds)
 
@@ -116,10 +120,16 @@ class AnalysisService(
                     response.players.map { playerDto ->
                         val proId =
                             playerDto.proId.toLongOrNull()
-                                ?: throw IllegalArgumentException("프로 선수 ID가 숫자가 아닙니다: ${playerDto.proId}")
+                                ?: throw BusinessException(
+                                    ErrorCode.INVALID_ANALYSIS_RESPONSE,
+                                    "분석 서버가 숫자가 아닌 프로 선수 ID를 반환했습니다: ${playerDto.proId}",
+                                )
                         val matchedProModel =
                             referenceModels.find { it.id == proId }
-                                ?: throw IllegalArgumentException("DB에 존재하지 않는 프로 선수 ID 반환됨: ${playerDto.proId}")
+                                ?: throw BusinessException(
+                                    ErrorCode.REFERENCE_MODEL_NOT_FOUND,
+                                    "분석 서버가 DB에 없는 프로 선수 ID를 반환했습니다: ${playerDto.proId}",
+                                )
                         AnalysisResult(
                             similarityScore = playerDto.overallScore,
                             feedbackText = "분석 완료 (구간 수: ${playerDto.phaseScores.size})",
@@ -153,8 +163,10 @@ class AnalysisService(
         val video =
             userVideoRepository
                 .findById(videoId)
-                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
-        require(video.user.id == userId) { "본인 영상만 최고의 1구로 등록할 수 있습니다." }
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
+        if (video.user.id != userId) {
+            throw BusinessException(ErrorCode.NOT_VIDEO_OWNER)
+        }
         val pitchType = video.pitchType ?: "직구"
         // 같은 구종의 기존 best 해제 (구종당 1개 유지)
         userVideoRepository
@@ -179,14 +191,14 @@ class AnalysisService(
         val userVideo =
             userVideoRepository
                 .findById(videoId)
-                .orElseThrow { EntityNotFoundException("해당 영상 정보를 찾을 수 없습니다") }
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
         val bestPitch =
             userVideoRepository
                 .findById(bestPitchVideoId)
-                .orElseThrow { EntityNotFoundException("비교할 최고의 1구 영상을 찾을 수 없습니다") }
+                .orElseThrow { BusinessException(ErrorCode.BEST_PITCH_VIDEO_NOT_FOUND) }
         val bestCsv =
             bestPitch.skeletonData?.skeletonData?.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("최고의 1구 영상의 골격 데이터가 없습니다. 먼저 분석을 완료해 주세요.")
+                ?: throw BusinessException(ErrorCode.SKELETON_DATA_NOT_READY)
 
         // CSV에 콤마/줄바꿈이 들어 있어 문자열 결합이 위험하므로 metadata는 ObjectMapper로 직렬화한다.
         val metadataMap =
@@ -222,7 +234,7 @@ class AnalysisService(
             .publishOn(Schedulers.boundedElastic())
             .map { response ->
                 if (response.status != "completed") {
-                    throw RuntimeException("AI 서버 분석 실패: 상태 이상")
+                    throw BusinessException(ErrorCode.ANALYSIS_FAILED, "분석 서버가 완료 상태를 반환하지 않았습니다: ${response.status}")
                 }
                 val userData = response.userData
                 val userSkeleton =
@@ -278,7 +290,7 @@ class AnalysisService(
         val userVideo =
             userVideoRepository
                 .findById(videoId)
-                .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
 
         val results =
             analysisResultRepository.findByUserVideoId(videoId).map {
@@ -305,7 +317,7 @@ class AnalysisService(
         val userVideo =
             userVideoRepository
                 .findById(videoId)
-                .orElseThrow { NoSuchElementException("영상을 찾을 수 없습니다.") }
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
         return mapOf(
             "skeletonData" to (userVideo.skeletonData?.skeletonData ?: ""),
             "frameCount" to (userVideo.skeletonData?.frameCount ?: 0),

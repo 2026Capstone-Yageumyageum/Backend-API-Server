@@ -13,7 +13,8 @@ import com.capstone.backend.domain.user.entity.User
 import com.capstone.backend.domain.user.repository.UserRepository
 import com.capstone.backend.domain.video.entity.UserVideo
 import com.capstone.backend.domain.video.repository.UserVideoRepository
-import jakarta.persistence.EntityNotFoundException
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -99,7 +100,11 @@ class UserService(
             val top = topResult(video) ?: return@mapNotNull null
             MyAnalysisItemResponse(
                 videoId = video.id!!,
-                date = video.uploadedAt.toLocalDate().toString().replace('-', '.'),
+                date =
+                    video.uploadedAt
+                        .toLocalDate()
+                        .toString()
+                        .replace('-', '.'),
                 playerName = top.referenceModel?.pitcherName ?: "프로",
                 pitchType = video.pitchType ?: "직구",
                 similarity = top.similarityScore.roundToInt(),
@@ -148,7 +153,11 @@ class UserService(
             BestPitchCardResponse(
                 videoId = best.id!!,
                 pitchType = best.pitchType ?: "직구",
-                date = best.uploadedAt.toLocalDate().toString().replace('-', '.'),
+                date =
+                    best.uploadedAt
+                        .toLocalDate()
+                        .toString()
+                        .replace('-', '.'),
                 bestConsistency = scores.maxOrNull()?.roundToInt() ?: 0,
                 sessionCount = scores.size,
                 avgConsistency = if (scores.isNotEmpty()) scores.average().roundToInt() else 0,
@@ -170,7 +179,11 @@ class UserService(
             BestPitchComparisonItemResponse(
                 videoId = it.userVideo.id!!,
                 bestPitchVideoId = best.id!!,
-                date = it.userVideo.uploadedAt.toLocalDate().toString().replace('-', '.'),
+                date =
+                    it.userVideo.uploadedAt
+                        .toLocalDate()
+                        .toString()
+                        .replace('-', '.'),
                 pitchType = pitchType,
                 consistency = it.similarityScore.roundToInt(),
             )
@@ -181,7 +194,7 @@ class UserService(
     private fun findUser(userId: Long): User =
         userRepository
             .findById(userId)
-            .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다.") }
+            .orElseThrow { BusinessException(ErrorCode.USER_NOT_FOUND) }
 
     // 완료된 영상만, 최신순(findAllBy...DescUploadedAt)
     private fun completedVideos(user: User): List<UserVideo> =
@@ -196,6 +209,5 @@ class UserService(
             .filter { it.comparisonType == "PRO" }
             .maxByOrNull { it.similarityScore }
 
-    private fun UserVideo.isWithinRecentDays(days: Long): Boolean =
-        uploadedAt.toLocalDate().isAfter(LocalDate.now().minusDays(days))
+    private fun UserVideo.isWithinRecentDays(days: Long): Boolean = uploadedAt.toLocalDate().isAfter(LocalDate.now().minusDays(days))
 }

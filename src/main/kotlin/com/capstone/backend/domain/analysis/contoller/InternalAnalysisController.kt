@@ -10,7 +10,11 @@ import com.capstone.backend.domain.video.entity.SkeletonData
 import com.capstone.backend.domain.video.entity.UserVideo
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
 import com.capstone.backend.domain.video.repository.UserVideoRepository
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
+import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -26,6 +30,8 @@ class InternalAnalysisController(
     private val skeletonDataRepository: SkeletonDataRepository,
     private val referenceModelRepository: ReferenceModelRepository,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @GetMapping("/reference-models")
     fun getReferenceModelsForCache(): List<ReferenceDataResponse> = analysisService.getAllReferenceData()
 
@@ -101,8 +107,10 @@ class InternalAnalysisController(
             } else if (root.isObject && root.has("skeleton_data")) {
                 finalSkeletonDataCsv = root.get("skeleton_data").asText()
             }
-        } catch (e: Exception) {
-            // JSON이 아니면 그냥 원본 사용
+        } catch (e: JacksonException) {
+            // JSON이 아니면 CSV 원본으로 간주하고 그대로 사용한다(정상 경로).
+            // 다만 원인을 삼키면 파일 형식 문제를 영영 알 수 없으므로 로그는 남긴다.
+            log.warn("스켈레톤 파일을 JSON으로 해석하지 못해 원본을 그대로 사용합니다: {}", skeletonFile.originalFilename, e)
         }
 
         val skeleton =
@@ -144,8 +152,8 @@ class InternalAnalysisController(
                 root.isObject ->
                     listOf("items", "proSkeletonData", "pro_skeleton_data", "players", "data")
                         .firstNotNullOfOrNull { key -> root.get(key)?.takeIf { it.isArray } }
-                        ?: throw IllegalArgumentException("JSON 객체에서 items 배열을 찾지 못했습니다.")
-                else -> throw IllegalArgumentException("지원하지 않는 JSON 형식입니다.")
+                        ?: throw BusinessException(ErrorCode.INVALID_JSON_FORMAT, "JSON 객체에서 items 배열을 찾지 못했습니다.")
+                else -> throw BusinessException(ErrorCode.INVALID_JSON_FORMAT)
             }
 
         var successCount = 0

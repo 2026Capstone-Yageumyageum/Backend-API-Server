@@ -3,6 +3,8 @@ package com.capstone.backend.domain.analysis.contoller
 import com.capstone.backend.domain.analysis.dto.AnalysisResultResponse
 import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
 import com.capstone.backend.domain.analysis.service.AnalysisService
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
 import org.springframework.core.io.FileSystemResource
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -32,7 +34,7 @@ class AnalysisController(
         @org.springframework.web.bind.annotation.RequestParam(required = false) startSec: Double?,
         @org.springframework.web.bind.annotation.RequestParam(required = false) endSec: Double?,
     ): ResponseEntity<Map<String, Any>> {
-        val resolvedUserId = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
 
         // 요청 종료 후에도 백그라운드 스레드가 읽을 수 있도록 업로드 파일을 임시 파일로 복사한다.
         val suffix =
@@ -76,7 +78,7 @@ class AnalysisController(
         @org.springframework.web.bind.annotation.RequestParam(required = false) startSec: Double?,
         @org.springframework.web.bind.annotation.RequestParam(required = false) endSec: Double?,
     ): ResponseEntity<Map<String, Any>> {
-        val resolvedUserId = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
 
         val suffix =
             file.originalFilename
@@ -114,7 +116,7 @@ class AnalysisController(
         @AuthenticationPrincipal userId: Long?,
         @PathVariable videoId: Long,
     ): ResponseEntity<Map<String, Any>> {
-        val resolvedUserId = userId ?: throw IllegalArgumentException("로그인이 필요합니다.")
+        val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         analysisService.registerBestPitch(resolvedUserId, videoId)
         return ResponseEntity.ok(mapOf("videoId" to videoId, "message" to "최고의 1구로 등록되었습니다."))
     }
