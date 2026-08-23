@@ -3,10 +3,11 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
     driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: your_password
+    username: ${DB_USERNAME:postgres}
+    # 기본값 없음: 환경변수 미설정 시 앱이 시작 단계에서 바로 실패하도록 한다.
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -24,9 +25,8 @@ spring:
       client:
         registration:
           google:
-            # GCP 콘솔에서 발급받은 값 입력
-            client-id: "enter_your_client_id"
-            client-secret: "enter_your_client_secret"
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - profile
               - email

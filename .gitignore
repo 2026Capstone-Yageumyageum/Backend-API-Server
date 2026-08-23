@@ -38,3 +38,7 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### 로컬 환경변수 (시크릿 — 절대 커밋 금지) ###
+.env
+.env.local
