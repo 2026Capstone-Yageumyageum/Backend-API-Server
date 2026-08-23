@@ -46,3 +46,9 @@ jwt:
   secret: test_secret_key_for_tests_only_do_not_use_in_production
   access-expiration: 3600000
   refresh-expiration: 1209600000
+
+app:
+  internal-api:
+    allowed-cidrs: 127.0.0.1/32,::1/128
+  cors:
+    allowed-origin-patterns: "*"

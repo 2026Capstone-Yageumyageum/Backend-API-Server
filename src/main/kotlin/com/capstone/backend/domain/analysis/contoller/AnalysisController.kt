@@ -134,13 +134,21 @@ class AnalysisController(
 
     @GetMapping("/{videoId}/result") // 분석 결과 조회 API
     fun getAnalysisResult(
+        @AuthenticationPrincipal userId: Long?,
         @PathVariable videoId: Long,
-    ): ResponseEntity<AnalysisResultResponse> = ResponseEntity.ok(analysisService.getAnalysisResult(videoId))
+    ): ResponseEntity<AnalysisResultResponse> {
+        val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
+        return ResponseEntity.ok(analysisService.getAnalysisResult(resolvedUserId, videoId))
+    }
 
     @GetMapping("/{videoId}/skeleton") // 스켈레톤 데이터 조회 API
     fun getSkeletonData(
+        @AuthenticationPrincipal userId: Long?,
         @PathVariable videoId: Long,
-    ): ResponseEntity<Map<String, Any>> = ResponseEntity.ok(analysisService.getSkeletonData(videoId))
+    ): ResponseEntity<Map<String, Any>> {
+        val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
+        return ResponseEntity.ok(analysisService.getSkeletonData(resolvedUserId, videoId))
+    }
 
     @GetMapping("/reference-data")
     fun getAllReferenceData(): ResponseEntity<List<ReferenceDataResponse>> = ResponseEntity.ok(analysisService.getAllReferenceData())

@@ -154,7 +154,8 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("영상을 찾을 수 없으면 404와 VIDEO_NOT_FOUND를 반환한다")
     fun videoNotFound_returns404() {
-        given(analysisService.getAnalysisResult(999L))
+        authenticateAs(1L)
+        given(analysisService.getAnalysisResult(1L, 999L))
             .willThrow(BusinessException(ErrorCode.VIDEO_NOT_FOUND))
 
         mockMvc
@@ -180,7 +181,8 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("분석 서버 오류는 500이 아니라 502를 반환한다")
     fun analysisServerFailure_returns502() {
-        given(analysisService.getAnalysisResult(1L))
+        authenticateAs(1L)
+        given(analysisService.getAnalysisResult(1L, 1L))
             .willThrow(BusinessException(ErrorCode.ANALYSIS_FAILED))
 
         mockMvc
@@ -196,7 +198,8 @@ class GlobalExceptionHandlerTest {
     fun unexpectedException_hidesInternalDetails() {
         val leakyMessage =
             "Cannot invoke \"com.capstone.backend.domain.video.entity.SkeletonData.getSkeletonData()\" because it is null"
-        given(analysisService.getAnalysisResult(7L))
+        authenticateAs(1L)
+        given(analysisService.getAnalysisResult(1L, 7L))
             .willThrow(NullPointerException(leakyMessage))
 
         mockMvc

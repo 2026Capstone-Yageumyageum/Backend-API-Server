@@ -4,12 +4,8 @@ import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
 import com.capstone.backend.domain.analysis.entity.ReferenceModel
 import com.capstone.backend.domain.analysis.repository.ReferenceModelRepository
 import com.capstone.backend.domain.analysis.service.AnalysisService
-import com.capstone.backend.domain.user.entity.User
-import com.capstone.backend.domain.user.repository.UserRepository
 import com.capstone.backend.domain.video.entity.SkeletonData
-import com.capstone.backend.domain.video.entity.UserVideo
 import com.capstone.backend.domain.video.repository.SkeletonDataRepository
-import com.capstone.backend.domain.video.repository.UserVideoRepository
 import com.capstone.backend.global.exception.BusinessException
 import com.capstone.backend.global.exception.ErrorCode
 import com.fasterxml.jackson.core.JacksonException
@@ -19,14 +15,11 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @RestController
 @RequestMapping("/api/internal/analysis")
 class InternalAnalysisController(
     private val analysisService: AnalysisService,
-    private val userRepository: UserRepository,
-    private val userVideoRepository: UserVideoRepository,
     private val skeletonDataRepository: SkeletonDataRepository,
     private val referenceModelRepository: ReferenceModelRepository,
 ) {
@@ -34,54 +27,6 @@ class InternalAnalysisController(
 
     @GetMapping("/reference-models")
     fun getReferenceModelsForCache(): List<ReferenceDataResponse> = analysisService.getAllReferenceData()
-
-    @PostMapping("/test/dummy-video")
-    fun createDummyVideo(): Map<String, Any> {
-        val user =
-            userRepository.save(
-                User(
-                    email = "test_${UUID.randomUUID()}@test.com",
-                    nickname = "tester",
-                ),
-            )
-        val video = userVideoRepository.save(UserVideo(user = user, videoUrl = "dummy.mp4"))
-        return mapOf(
-            "message" to "더미 비디오가 생성되었습니다.",
-            "userId" to user.id!!,
-            "videoId" to video.id!!,
-        )
-    }
-
-    @PostMapping("/test/dummy-reference")
-    fun createDummyReference(): Map<String, Any> {
-        val skeleton =
-            skeletonDataRepository.save(
-                SkeletonData(
-                    skeletonData = "{}",
-                    frameCount = 300,
-                    fps = 30.0,
-                    resolution = "1920x1080",
-                ),
-            )
-        val referenceModel =
-            referenceModelRepository.save(
-                ReferenceModel(
-                    pitcherName =
-                        "테스트선수_${
-                            UUID.randomUUID()
-                                .toString()
-                                .substring(0, 5)
-                        }",
-                    pitchType = "직구",
-                    sourceUrl = "dummy_pro.mp4",
-                    skeletonData = skeleton,
-                ),
-            )
-        return mapOf(
-            "message" to "더미 레퍼런스 모델이 생성되었습니다.",
-            "referenceId" to referenceModel.id!!,
-        )
-    }
 
     @PostMapping("/reference-model", consumes = [org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE])
     fun createReferenceModel(

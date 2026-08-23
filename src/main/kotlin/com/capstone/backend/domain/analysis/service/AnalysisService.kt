@@ -286,11 +286,11 @@ class AnalysisService(
     }
 
     @Transactional(readOnly = true)
-    fun getAnalysisResult(videoId: Long): AnalysisResultResponse {
-        val userVideo =
-            userVideoRepository
-                .findById(videoId)
-                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
+    fun getAnalysisResult(
+        userId: Long,
+        videoId: Long,
+    ): AnalysisResultResponse {
+        val userVideo = findOwnedVideo(userId, videoId)
 
         val results =
             analysisResultRepository.findByUserVideoId(videoId).map {
@@ -313,14 +313,37 @@ class AnalysisService(
     }
 
     @Transactional(readOnly = true)
-    fun getSkeletonData(videoId: Long): Map<String, Any> {
-        val userVideo =
-            userVideoRepository
-                .findById(videoId)
-                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
+    fun getSkeletonData(
+        userId: Long,
+        videoId: Long,
+    ): Map<String, Any> {
+        val userVideo = findOwnedVideo(userId, videoId)
         return mapOf(
             "skeletonData" to (userVideo.skeletonData?.skeletonData ?: ""),
             "frameCount" to (userVideo.skeletonData?.frameCount ?: 0),
         )
+    }
+
+    /**
+     * 영상을 조회하되 요청자의 소유인지 함께 확인한다.
+     *
+     * 기존 조회 API는 videoId만 받고 소유자를 확인하지 않아,
+     * 값을 1씩 올려가며 다른 사용자의 분석 결과와 골격 데이터를 볼 수 있었다(IDOR).
+     *
+     * 존재하지 않는 경우와 남의 것인 경우를 구분해 응답하면 videoId의 존재 여부가
+     * 드러나지만, 이미 소유자 검사로 내용은 막히고 사용자에게는 원인이 명확해진다.
+     */
+    private fun findOwnedVideo(
+        userId: Long,
+        videoId: Long,
+    ): UserVideo {
+        val video =
+            userVideoRepository
+                .findById(videoId)
+                .orElseThrow { BusinessException(ErrorCode.VIDEO_NOT_FOUND) }
+        if (video.user.id != userId) {
+            throw BusinessException(ErrorCode.NOT_VIDEO_OWNER)
+        }
+        return video
     }
 }

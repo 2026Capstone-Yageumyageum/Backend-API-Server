@@ -10,6 +10,7 @@ import com.capstone.backend.domain.user.repository.UserRepository
 import com.capstone.backend.global.exception.BusinessException
 import com.capstone.backend.global.exception.ErrorCode
 import com.capstone.backend.global.util.JwtUtil
+import com.capstone.backend.global.util.TokenStatus
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -98,7 +99,7 @@ class AuthService(
 
     @Transactional
     fun refreshTokens(requestToken: String): TokenResponse {
-        if (!jwtUtil.validateToken(requestToken)) {
+        if (jwtUtil.validateToken(requestToken) != TokenStatus.VALID) {
             throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
         val storedToken =
