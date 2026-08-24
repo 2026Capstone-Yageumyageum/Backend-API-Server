@@ -1,10 +1,14 @@
-package com.capstone.backend.domain.analysis.contoller
+package com.capstone.backend.domain.analysis.controller
 
 import com.capstone.backend.domain.analysis.dto.AnalysisResultResponse
+import com.capstone.backend.domain.analysis.dto.AnalysisStartResponse
+import com.capstone.backend.domain.analysis.dto.BestPitchRegisterResponse
 import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
+import com.capstone.backend.domain.analysis.dto.SkeletonDataResponse
 import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.service.AnalysisService
 import com.capstone.backend.domain.analysis.service.DEFAULT_PITCH_TYPE
+import com.capstone.backend.domain.analysis.service.ReferenceModelService
 import com.capstone.backend.domain.analysis.service.VIDEO_STATUS_PENDING
 import com.capstone.backend.global.exception.BusinessException
 import com.capstone.backend.global.exception.ErrorCode
@@ -33,6 +37,7 @@ private const val DEFAULT_VIDEO_SUFFIX = ".mp4"
 @RequestMapping("/api/analysis")
 class AnalysisController(
     private val analysisService: AnalysisService,
+    private val referenceModelService: ReferenceModelService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -47,7 +52,7 @@ class AnalysisController(
         @RequestParam(required = false) pitchType: String?,
         @RequestParam(required = false) startSec: Double?,
         @RequestParam(required = false) endSec: Double?,
-    ): ResponseEntity<Map<String, Any>> =
+    ): ResponseEntity<AnalysisStartResponse> =
         startAnalysis(userId, file, pitchType, "분석을 시작했습니다. 결과는 잠시 후 조회해 주세요.") { videoId, resource ->
             analysisService.requestPitchingAnalysisAsync(videoId, resource, startSec, endSec)
         }
@@ -64,7 +69,7 @@ class AnalysisController(
         @RequestParam(required = false) pitchType: String?,
         @RequestParam(required = false) startSec: Double?,
         @RequestParam(required = false) endSec: Double?,
-    ): ResponseEntity<Map<String, Any>> =
+    ): ResponseEntity<AnalysisStartResponse> =
         startAnalysis(userId, file, pitchType, "최고의 1구 비교 분석을 시작했습니다. 결과는 잠시 후 조회해 주세요.") { videoId, resource ->
             analysisService.requestBestPitchAnalysisAsync(videoId, resource, bestPitchVideoId, startSec, endSec)
         }
@@ -81,7 +86,7 @@ class AnalysisController(
         pitchType: String?,
         message: String,
         analyze: (videoId: Long, resource: Resource) -> Mono<List<AnalysisResult>>,
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<AnalysisStartResponse> {
         val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
 
         val tempFile = Files.createTempFile("pitch_upload_", resolveSuffix(file))
@@ -112,11 +117,7 @@ class AnalysisController(
             )
 
         return ResponseEntity.accepted().body(
-            mapOf(
-                "videoId" to videoId,
-                "status" to VIDEO_STATUS_PENDING,
-                "message" to message,
-            ),
+            AnalysisStartResponse(videoId = videoId, status = VIDEO_STATUS_PENDING, message = message),
         )
     }
 
@@ -132,10 +133,10 @@ class AnalysisController(
     fun registerBestPitch(
         @AuthenticationPrincipal userId: Long?,
         @PathVariable videoId: Long,
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<BestPitchRegisterResponse> {
         val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         analysisService.registerBestPitch(resolvedUserId, videoId)
-        return ResponseEntity.ok(mapOf("videoId" to videoId, "message" to "최고의 1구로 등록되었습니다."))
+        return ResponseEntity.ok(BestPitchRegisterResponse(videoId, "최고의 1구로 등록되었습니다."))
     }
 
     @GetMapping("/{videoId}/result") // 분석 결과 조회 API
@@ -151,11 +152,11 @@ class AnalysisController(
     fun getSkeletonData(
         @AuthenticationPrincipal userId: Long?,
         @PathVariable videoId: Long,
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<SkeletonDataResponse> {
         val resolvedUserId = userId ?: throw BusinessException(ErrorCode.LOGIN_REQUIRED)
         return ResponseEntity.ok(analysisService.getSkeletonData(resolvedUserId, videoId))
     }
 
     @GetMapping("/reference-data")
-    fun getAllReferenceData(): ResponseEntity<List<ReferenceDataResponse>> = ResponseEntity.ok(analysisService.getAllReferenceData())
+    fun getAllReferenceData(): ResponseEntity<List<ReferenceDataResponse>> = ResponseEntity.ok(referenceModelService.findAll())
 }

@@ -1,6 +1,10 @@
 package com.capstone.backend.domain.user.service
 
+import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
+import com.capstone.backend.domain.analysis.service.COMPARISON_PRO
+import com.capstone.backend.domain.analysis.service.DEFAULT_PITCH_TYPE
+import com.capstone.backend.domain.analysis.service.VIDEO_STATUS_COMPLETED
 import com.capstone.backend.domain.user.dto.BestPitchCardResponse
 import com.capstone.backend.domain.user.dto.BestPitchComparisonItemResponse
 import com.capstone.backend.domain.user.dto.GrowthPointResponse
@@ -40,13 +44,7 @@ class UserService(
     @Transactional(readOnly = true)
     fun getStats(userId: Long): UserStatsResponse {
         val user = findUser(userId)
-        // 완료된 영상마다 Top(최고 유사도) 결과를 뽑아 (영상, Top결과) 쌍으로 모은다.
-        val pairs =
-            completedVideos(user)
-                .mapNotNull { video ->
-                    val top = topResult(video) ?: return@mapNotNull null
-                    video to top
-                }
+        val pairs = videosWithTopResult(user)
 
         val totalSessions = pairs.size
         val bestScore = pairs.maxOfOrNull { it.second.similarityScore }?.roundToInt() ?: 0
@@ -72,7 +70,7 @@ class UserService(
         // 구종 분포: 사용자가 선택한 구종(영상) 기준 집계
         val pitchDistribution =
             pairs
-                .groupingBy { it.first.pitchType ?: "직구" }
+                .groupingBy { it.first.pitchType ?: DEFAULT_PITCH_TYPE }
                 .eachCount()
                 .map { (type, count) ->
                     PitchDistributionResponse(
@@ -96,17 +94,12 @@ class UserService(
     @Transactional(readOnly = true)
     fun getMyAnalyses(userId: Long): List<MyAnalysisItemResponse> {
         val user = findUser(userId)
-        return completedVideos(user).mapNotNull { video ->
-            val top = topResult(video) ?: return@mapNotNull null
+        return videosWithTopResult(user).map { (video, top) ->
             MyAnalysisItemResponse(
-                videoId = video.id!!,
-                date =
-                    video.uploadedAt
-                        .toLocalDate()
-                        .toString()
-                        .replace('-', '.'),
+                videoId = video.requireId(),
+                date = video.formattedDate(),
                 playerName = top.referenceModel?.pitcherName ?: "프로",
-                pitchType = video.pitchType ?: "직구",
+                pitchType = video.pitchType ?: DEFAULT_PITCH_TYPE,
                 similarity = top.similarityScore.roundToInt(),
             )
         }
@@ -141,23 +134,29 @@ class UserService(
         }
     }
 
-    // 일관성 탭: 사용자가 등록한 구종별 "최고의 1구" 카드 목록.
+    /**
+     * 일관성 탭: 사용자가 등록한 구종별 "최고의 1구" 카드 목록.
+     *
+     * 예전에는 best 영상마다 비교 기록을 따로 조회해 카드 수만큼 쿼리가 나갔다.
+     * 지금은 한 번에 가져와 메모리에서 묶는다.
+     */
     @Transactional(readOnly = true)
     fun getBestPitches(userId: Long): List<BestPitchCardResponse> {
         val user = findUser(userId)
-        return userVideoRepository.findAllByUserAndIsBestPitchTrue(user).map { best ->
-            val scores =
-                analysisResultRepository
-                    .findByBestPitchVideo_IdOrderByCreatedAtDesc(best.id!!)
-                    .map { it.similarityScore }
+        val bestVideos = userVideoRepository.findAllByUserAndIsBestPitchTrue(user)
+        if (bestVideos.isEmpty()) return emptyList()
+
+        val scoresByBestId =
+            analysisResultRepository
+                .findByBestPitchVideo_IdIn(bestVideos.map { it.requireId() })
+                .groupBy({ it.bestPitchVideo?.id }, { it.similarityScore })
+
+        return bestVideos.map { best ->
+            val scores = scoresByBestId[best.id].orEmpty()
             BestPitchCardResponse(
-                videoId = best.id!!,
-                pitchType = best.pitchType ?: "직구",
-                date =
-                    best.uploadedAt
-                        .toLocalDate()
-                        .toString()
-                        .replace('-', '.'),
+                videoId = best.requireId(),
+                pitchType = best.pitchType ?: DEFAULT_PITCH_TYPE,
+                date = best.formattedDate(),
                 bestConsistency = scores.maxOrNull()?.roundToInt() ?: 0,
                 sessionCount = scores.size,
                 avgConsistency = if (scores.isNotEmpty()) scores.average().roundToInt() else 0,
@@ -175,15 +174,11 @@ class UserService(
         val best =
             userVideoRepository.findFirstByUserAndPitchTypeAndIsBestPitchTrue(user, pitchType)
                 ?: return emptyList()
-        return analysisResultRepository.findByBestPitchVideo_IdOrderByCreatedAtDesc(best.id!!).map {
+        return analysisResultRepository.findByBestPitchVideo_IdOrderByCreatedAtDesc(best.requireId()).map {
             BestPitchComparisonItemResponse(
-                videoId = it.userVideo.id!!,
-                bestPitchVideoId = best.id!!,
-                date =
-                    it.userVideo.uploadedAt
-                        .toLocalDate()
-                        .toString()
-                        .replace('-', '.'),
+                videoId = it.userVideo.requireId(),
+                bestPitchVideoId = best.requireId(),
+                date = it.userVideo.formattedDate(),
                 pitchType = pitchType,
                 consistency = it.similarityScore.roundToInt(),
             )
@@ -200,14 +195,39 @@ class UserService(
     private fun completedVideos(user: User): List<UserVideo> =
         userVideoRepository
             .findAllByUserOrderByUploadedAtDesc(user)
-            .filter { it.status == "COMPLETED" }
+            .filter { it.status == VIDEO_STATUS_COMPLETED }
 
-    // 한 영상의 Top(최고 유사도) 프로 비교 결과. 최고의 1구(BEST_PITCH) 비교는 프로 통계/목록에서 제외한다.
-    private fun topResult(video: UserVideo) =
-        analysisResultRepository
-            .findByUserVideoId(video.id!!)
-            .filter { it.comparisonType == "PRO" }
-            .maxByOrNull { it.similarityScore }
+    /**
+     * 완료된 영상마다 Top(최고 유사도) 프로 비교 결과를 붙여 (영상, Top결과) 쌍으로 돌려준다.
+     *
+     * 예전에는 영상 하나당 findByUserVideoId를 호출해 영상이 50개면 쿼리가 51번 나갔다(N+1).
+     * 지금은 영상 목록 1회 + 결과 목록 1회, 총 2회로 끝난다.
+     * 최고의 1구(BEST_PITCH) 비교는 프로 통계에서 제외한다.
+     */
+    private fun videosWithTopResult(user: User): List<Pair<UserVideo, AnalysisResult>> {
+        val videos = completedVideos(user)
+        if (videos.isEmpty()) return emptyList()
+
+        val topByVideoId =
+            analysisResultRepository
+                .findByUserVideoIdIn(videos.map { it.requireId() })
+                .filter { it.comparisonType == COMPARISON_PRO }
+                .groupBy { it.userVideo.id }
+                .mapValues { (_, results) -> results.maxByOrNull { it.similarityScore } }
+
+        return videos.mapNotNull { video ->
+            topByVideoId[video.id]?.let { top -> video to top }
+        }
+    }
 
     private fun UserVideo.isWithinRecentDays(days: Long): Boolean = uploadedAt.toLocalDate().isAfter(LocalDate.now().minusDays(days))
+
+    /** 저장된 엔티티의 id는 항상 존재한다. !! 대신 실패 이유가 드러나는 메시지를 남긴다. */
+    private fun UserVideo.requireId(): Long = id ?: error("저장되지 않은 UserVideo입니다.")
+
+    private fun UserVideo.formattedDate(): String =
+        uploadedAt
+            .toLocalDate()
+            .toString()
+            .replace('-', '.')
 }

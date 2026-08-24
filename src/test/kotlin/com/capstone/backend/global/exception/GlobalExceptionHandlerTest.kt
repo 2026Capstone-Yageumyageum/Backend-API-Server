@@ -1,7 +1,8 @@
 package com.capstone.backend.global.exception
 
-import com.capstone.backend.domain.analysis.contoller.AnalysisController
+import com.capstone.backend.domain.analysis.controller.AnalysisController
 import com.capstone.backend.domain.analysis.service.AnalysisService
+import com.capstone.backend.domain.analysis.service.ReferenceModelService
 import com.capstone.backend.domain.user.controller.AuthController
 import com.capstone.backend.domain.user.controller.UserController
 import com.capstone.backend.domain.user.dto.SignupRequest
@@ -35,13 +36,14 @@ class GlobalExceptionHandlerTest {
     private val authService = mock(AuthService::class.java)
     private val userService = mock(UserService::class.java)
     private val analysisService = mock(AnalysisService::class.java)
+    private val referenceModelService = mock(ReferenceModelService::class.java)
 
     private val mockMvc: MockMvc =
         MockMvcBuilders
             .standaloneSetup(
                 AuthController(authService),
                 UserController(userService),
-                AnalysisController(analysisService),
+                AnalysisController(analysisService, referenceModelService),
             ).setControllerAdvice(GlobalExceptionHandler())
             // @AuthenticationPrincipal을 해석하려면 이 리졸버가 필요하다.
             // SecurityContext가 비어 있으면 null을 넘겨주므로 "비로그인" 상황을 그대로 재현한다.

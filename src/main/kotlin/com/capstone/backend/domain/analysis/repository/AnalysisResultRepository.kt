@@ -13,6 +13,13 @@ import org.springframework.stereotype.Repository
 interface AnalysisResultRepository : JpaRepository<AnalysisResult, Long> {
     fun findByUserVideoId(userVideoId: Long): List<AnalysisResult>
 
+    // 여러 영상의 결과를 한 번에 가져온다. 영상마다 findByUserVideoId를 부르면
+    // 영상 수만큼 쿼리가 나가므로(N+1), 목록 화면에서는 반드시 이쪽을 쓴다.
+    fun findByUserVideoIdIn(userVideoIds: Collection<Long>): List<AnalysisResult>
+
+    // 여러 "최고의 1구"에 대한 비교 기록을 한 번에 가져온다(일관성 탭 카드 목록용).
+    fun findByBestPitchVideo_IdIn(bestPitchVideoIds: Collection<Long>): List<AnalysisResult>
+
     // 특정 사용자의, 특정 프로(referenceModel)에 대한 모든 분석 결과 (프로별 점수 추이용)
     fun findByUserVideo_User_IdAndReferenceModel_Id(
         userId: Long,

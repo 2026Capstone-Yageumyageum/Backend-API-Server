@@ -4,7 +4,7 @@ import com.capstone.backend.domain.analysis.dto.AnalysisResponse
 import com.capstone.backend.domain.analysis.dto.AnalysisResultResponse
 import com.capstone.backend.domain.analysis.dto.PitchingComparisonDto
 import com.capstone.backend.domain.analysis.dto.PlayerAnalysisDto
-import com.capstone.backend.domain.analysis.dto.ReferenceDataResponse
+import com.capstone.backend.domain.analysis.dto.SkeletonDataResponse
 import com.capstone.backend.domain.analysis.entity.AnalysisResult
 import com.capstone.backend.domain.analysis.repository.AnalysisResultRepository
 import com.capstone.backend.domain.analysis.repository.ReferenceModelRepository
@@ -263,17 +263,6 @@ class AnalysisService(
     }
 
     @Transactional(readOnly = true)
-    fun getAllReferenceData(): List<ReferenceDataResponse> =
-        referenceModelRepository.findAll().map { model ->
-            ReferenceDataResponse(
-                proId = model.id!!,
-                pitcherName = model.pitcherName,
-                pitchType = model.pitchType,
-                skeletonData = model.skeletonData.skeletonData,
-            )
-        }
-
-    @Transactional(readOnly = true)
     fun getAnalysisResult(
         userId: Long,
         videoId: Long,
@@ -304,11 +293,11 @@ class AnalysisService(
     fun getSkeletonData(
         userId: Long,
         videoId: Long,
-    ): Map<String, Any> {
+    ): SkeletonDataResponse {
         val userVideo = findOwnedVideo(userId, videoId)
-        return mapOf(
-            "skeletonData" to (userVideo.skeletonData?.skeletonData ?: ""),
-            "frameCount" to (userVideo.skeletonData?.frameCount ?: 0),
+        return SkeletonDataResponse(
+            skeletonData = userVideo.skeletonData?.skeletonData ?: "",
+            frameCount = userVideo.skeletonData?.frameCount ?: 0,
         )
     }
 

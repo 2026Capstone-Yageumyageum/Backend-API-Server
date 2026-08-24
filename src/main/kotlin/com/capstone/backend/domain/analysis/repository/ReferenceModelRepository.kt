@@ -5,6 +5,4 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 @Repository
-interface ReferenceModelRepository : JpaRepository<ReferenceModel, Long> {
-    fun findById(id: String): List<ReferenceModel>
-}
+interface ReferenceModelRepository : JpaRepository<ReferenceModel, Long>
