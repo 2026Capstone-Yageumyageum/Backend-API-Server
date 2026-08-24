@@ -48,6 +48,10 @@ jwt:
   refresh-expiration: 1209600000
 
 app:
+  python-analysis:
+    base-url: http://127.0.0.1:5020
+    connect-timeout-seconds: 1
+    response-timeout-minutes: 1
   internal-api:
     allowed-cidrs: 127.0.0.1/32,::1/128
   cors:

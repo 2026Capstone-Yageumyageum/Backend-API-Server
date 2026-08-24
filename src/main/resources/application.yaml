@@ -39,6 +39,12 @@ jwt:
   refresh-expiration: 1209600000   # 14일
 
 app:
+  python-analysis:
+    # 파이썬 분석 서버 주소. 이전에는 WebClientConfig에 하드코딩되어 있었다.
+    base-url: ${PYTHON_ANALYSIS_URL:http://127.0.0.1:5020}
+    connect-timeout-seconds: 10
+    # 영상 분석은 길게 걸리므로 넉넉히 두되, 무한 대기는 커넥션 고갈로 이어지므로 반드시 상한을 둔다.
+    response-timeout-minutes: 10
   internal-api:
     # /api/internal/** 을 호출할 수 있는 출발지 대역.
     # 파이썬 분석 서버가 인증 헤더 없이 레퍼런스 API를 호출하므로(pro_cache.py) 토큰 대신 IP로 제한한다.
