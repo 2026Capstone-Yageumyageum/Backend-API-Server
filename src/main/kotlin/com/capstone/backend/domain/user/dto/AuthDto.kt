@@ -39,3 +39,9 @@ data class TokenResponse(
     val accessToken: String,
     val refreshToken: String,
 )
+
+// 로그아웃은 돌려줄 데이터가 없지만, 다른 인증 API와 응답 모양을 맞춰
+// 클라이언트가 본문 유무로 분기하지 않게 한다.
+data class LogoutResponse(
+    val message: String,
+)

@@ -16,6 +16,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import jakarta.annotation.PostConstruct
 import jakarta.transaction.Transactional
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
@@ -27,6 +28,8 @@ class AuthService(
     private val jwtUtil: JwtUtil,
     private val refreshTokenRepository: RefreshTokenRepository,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     private val transport = NetHttpTransport()
     private val jsonFactory = GsonFactory.getDefaultInstance()
     private lateinit var verifier: GoogleIdTokenVerifier
@@ -123,5 +126,33 @@ class AuthService(
             ),
         )
         return TokenResponse(newAccessToken, newRefreshToken)
+    }
+
+    /**
+     * 로그아웃: 서버에 저장된 리프레시 토큰을 폐기한다.
+     *
+     * 왜 서버에서도 지워야 하는가:
+     * 클라이언트가 자기 저장소에서 토큰을 지우는 것만으로는 로그아웃이 끝나지 않는다.
+     * 서버는 그 토큰을 여전히 유효하다고 보므로, 값을 가진 누구든 /refresh 를 계속 호출할 수 있다.
+     * 게다가 갱신할 때마다 TTL이 새로 연장되니, 한 번 유출되면 사실상 기한이 없어진다.
+     * 사용자의 "그만 쓰겠다"는 의사를 서버에 반영하는 지점이 여기다.
+     *
+     * 설계 원칙 — 이 메서드는 실패하지 않는다:
+     *  - 이미 지워진 토큰이어도 조용히 통과한다(멱등). 404를 주면 "그 토큰이 있었는지"를
+     *    알려주는 셈이고, 클라이언트 입장에서도 재시도할 것이 없다.
+     *  - 만료된 토큰은 지울 것이 없다. Redis TTL이 JWT 만료와 같은 시각에 끝나기 때문이다.
+     *  - 위조된 토큰은 무시한다. 아무 문자열이나 저장소 삭제를 시도하게 두지 않는다.
+     *
+     * @Transactional을 붙이지 않는 이유: 대상이 Redis 저장소 하나뿐이라
+     * JPA 트랜잭션이 관여할 것이 없다. 붙이면 보호하는 것처럼 보이지만 실제로는 아무 효과가 없다.
+     */
+    fun logout(refreshToken: String) {
+        val status = jwtUtil.validateToken(refreshToken)
+        if (status != TokenStatus.VALID) {
+            // 사용자에게는 성공으로 응답한다. 남길 가치가 있는 것은 원인뿐이다.
+            log.warn("로그아웃 요청의 리프레시 토큰이 유효하지 않습니다. status={}", status)
+            return
+        }
+        refreshTokenRepository.deleteById(refreshToken)
     }
 }
