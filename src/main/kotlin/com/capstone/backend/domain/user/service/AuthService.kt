@@ -7,7 +7,10 @@ import com.capstone.backend.domain.user.entity.RefreshToken
 import com.capstone.backend.domain.user.entity.User
 import com.capstone.backend.domain.user.repository.RefreshTokenRepository
 import com.capstone.backend.domain.user.repository.UserRepository
+import com.capstone.backend.global.exception.BusinessException
+import com.capstone.backend.global.exception.ErrorCode
 import com.capstone.backend.global.util.JwtUtil
+import com.capstone.backend.global.util.TokenStatus
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -40,7 +43,7 @@ class AuthService(
     fun verifyGoogleToken(idTokenString: String): AuthResponse {
         val idToken =
             verifier.verify(idTokenString)
-                ?: throw IllegalStateException("유효하지 않은 구글 토큰입니다")
+                ?: throw BusinessException(ErrorCode.INVALID_GOOGLE_TOKEN)
         val email = idToken.payload.email
         return processUserLoginOrSignup(email)
     }
@@ -69,10 +72,10 @@ class AuthService(
     @Transactional
     fun signup(request: SignupRequest): AuthResponse {
         if (userRepository.existsByEmail(request.email)) {
-            throw IllegalArgumentException("이미 가입된 메일입니다.")
+            throw BusinessException(ErrorCode.DUPLICATE_EMAIL)
         }
         if (userRepository.existsByNickname(request.nickname)) {
-            throw IllegalArgumentException("이미 사용 중인 닉네임입니다.")
+            throw BusinessException(ErrorCode.DUPLICATE_NICKNAME)
         }
         val newUser =
             User(
@@ -96,23 +99,19 @@ class AuthService(
 
     @Transactional
     fun refreshTokens(requestToken: String): TokenResponse {
-        if (!jwtUtil.validateToken(requestToken)) {
-            throw IllegalArgumentException("유효하지 않거나 만료된 리프레시 토큰입니다.")
+        if (jwtUtil.validateToken(requestToken) != TokenStatus.VALID) {
+            throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
         val storedToken =
             refreshTokenRepository
                 .findById(requestToken)
-                .orElseThrow {
-                    IllegalArgumentException("이미 사용되었거나 만료된 토큰입니다. 다시 로그인해주세요.")
-                }
+                .orElseThrow { BusinessException(ErrorCode.INVALID_REFRESH_TOKEN) }
         refreshTokenRepository.delete(storedToken)
         val userID = storedToken.userId
         val user =
             userRepository
                 .findById(userID)
-                .orElseThrow {
-                    IllegalArgumentException("사용자를 찾을 수 없습니다.")
-                }
+                .orElseThrow { BusinessException(ErrorCode.USER_NOT_FOUND) }
         val newAccessToken = jwtUtil.generateAccessToken(userID, user.email)
         val newRefreshToken = jwtUtil.generateRefreshToken(userID)
 

@@ -3,10 +3,11 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
     driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: your_password
+    username: ${DB_USERNAME:postgres}
+    # 기본값 없음: 환경변수 미설정 시 앱이 시작 단계에서 바로 실패하도록 한다.
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -24,9 +25,8 @@ spring:
       client:
         registration:
           google:
-            # GCP 콘솔에서 발급받은 값 입력
-            client-id: "enter_your_client_id"
-            client-secret: "enter_your_client_secret"
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - profile
               - email
@@ -37,3 +37,20 @@ jwt:
   secret: ${JWT_SECRET_KEY:default_secret_key_over_32_characters_long}
   access-expiration: 3600000        # 1시간
   refresh-expiration: 1209600000   # 14일
+
+app:
+  python-analysis:
+    # 파이썬 분석 서버 주소. 이전에는 WebClientConfig에 하드코딩되어 있었다.
+    base-url: ${PYTHON_ANALYSIS_URL:http://127.0.0.1:5020}
+    connect-timeout-seconds: 10
+    # 영상 분석은 길게 걸리므로 넉넉히 두되, 무한 대기는 커넥션 고갈로 이어지므로 반드시 상한을 둔다.
+    response-timeout-minutes: 10
+  internal-api:
+    # /api/internal/** 을 호출할 수 있는 출발지 대역.
+    # 파이썬 분석 서버가 인증 헤더 없이 레퍼런스 API를 호출하므로(pro_cache.py) 토큰 대신 IP로 제한한다.
+    # 기본값은 같은 호스트에서 함께 도는 현재 구성 기준이며, 도커·사설망으로 분리하면 대역을 추가한다.
+    allowed-cidrs: ${INTERNAL_ALLOWED_CIDRS:127.0.0.1/32,::1/128}
+  cors:
+    # allowCredentials=true 와 "*" 조합은 사실상 모든 출처에 인증 정보 포함 요청을 허용한다.
+    # 운영 배포 시에는 반드시 앱·웹 출처를 명시할 것.
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:*}
