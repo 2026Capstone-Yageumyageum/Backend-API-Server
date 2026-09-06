@@ -36,6 +36,29 @@ data class PlayerAnalysisDto(
     val phaseScores: List<PhaseScoreDto>,
     val release: ReleaseDto? = null,
     val feedback: FeedbackDto? = null,
+    // 구버전 분석 서버는 이 필드를 보내지 않으므로 nullable 이어야 한다.
+    val phaseMetrics: List<PhaseMetricDto>? = null,
+)
+
+/**
+ * 구간별 상세 지표. 분석 서버가 산출한 값을 그대로 통과시키기 위한 DTO다.
+ *
+ * 백엔드는 이 값을 해석하지 않는다. 여기에 필드를 선언하는 이유는 오직 하나,
+ * 선언하지 않으면 Jackson이 조용히 버려서 앱까지 도달하지 못하기 때문이다.
+ */
+data class PhaseMetricDto(
+    val phase: String,
+    val key: String,
+    val label: String,
+    val userValue: Double? = null,
+    val proValue: Double? = null,
+    val difference: Double? = null,
+    val threshold: Double? = null,
+    val status: String,
+    val favorableDirection: String? = null,
+    val why: String? = null,
+    val userFrame: Double? = null,
+    val proFrame: Double? = null,
 )
 
 data class PhaseScoreDto(
