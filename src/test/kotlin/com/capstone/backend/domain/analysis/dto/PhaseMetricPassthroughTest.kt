@@ -35,6 +35,8 @@ class PhaseMetricPassthroughTest {
               "status": "good",
               "favorableDirection": "positive",
               "why": "에너지 축적과 직결됩니다.",
+              "userJoints": ["right_shoulder", "right_elbow"],
+              "proJoints": ["left_shoulder", "left_elbow"],
               "userFrame": 41,
               "proFrame": 38
             }
@@ -101,5 +103,34 @@ class PhaseMetricPassthroughTest {
         val dto = mapper.readValue(axisOnly, PlayerAnalysisDto::class.java)
 
         assertThat(dto.phaseMetrics!!.first().unit).isNull()
+    }
+
+    @Test
+    @DisplayName("측정 관절 이름이 역직렬화된다")
+    fun deserializesJoints() {
+        val dto = mapper.readValue(payload, PlayerAnalysisDto::class.java)
+
+        val metric = dto.phaseMetrics!!.first()
+        assertThat(metric.userJoints).containsExactly("right_shoulder", "right_elbow")
+        assertThat(metric.proJoints).containsExactly("left_shoulder", "left_elbow")
+    }
+
+    @Test
+    @DisplayName("관절 이름이 없는 구버전 응답도 깨지지 않는다")
+    fun toleratesMissingJoints() {
+        val legacy =
+            """
+            {
+              "analysisId": "a1", "proId": "7", "overallScore": 79.3, "phaseScores": [],
+              "phaseMetrics": [
+                { "phase": "stride", "key": "stride_foot_width", "label": "디딤발 착지 폭", "status": "good" }
+              ]
+            }
+            """.trimIndent()
+
+        val dto = mapper.readValue(legacy, PlayerAnalysisDto::class.java)
+
+        assertThat(dto.phaseMetrics!!.first().userJoints).isNull()
+        assertThat(dto.phaseMetrics!!.first().proJoints).isNull()
     }
 }

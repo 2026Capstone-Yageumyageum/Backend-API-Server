@@ -59,6 +59,9 @@ data class PhaseMetricDto(
     val status: String,
     val favorableDirection: String? = null,
     val why: String? = null,
+    /** 이 지표가 측정에 쓴 관절 이름. 손잡이가 서로 다를 수 있어 양쪽을 따로 받는다. */
+    val userJoints: List<String>? = null,
+    val proJoints: List<String>? = null,
     val userFrame: Double? = null,
     val proFrame: Double? = null,
 )
