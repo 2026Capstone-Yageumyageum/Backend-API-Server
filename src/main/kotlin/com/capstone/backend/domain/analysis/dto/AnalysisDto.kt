@@ -50,6 +50,8 @@ data class PhaseMetricDto(
     val phase: String,
     val key: String,
     val label: String,
+    /** "degree"면 도(°) 단위, null이면 단위 없는 정규화 좌표. 앱이 표기를 나눈다. */
+    val unit: String? = null,
     val userValue: Double? = null,
     val proValue: Double? = null,
     val difference: Double? = null,

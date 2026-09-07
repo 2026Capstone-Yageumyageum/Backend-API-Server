@@ -27,6 +27,7 @@ class PhaseMetricPassthroughTest {
               "phase": "leg_lift",
               "key": "leg_lift_knee_height",
               "label": "디딤 무릎 높이",
+              "unit": "degree",
               "userValue": 0.42,
               "proValue": 0.35,
               "difference": 0.07,
@@ -74,5 +75,31 @@ class PhaseMetricPassthroughTest {
         val dto = mapper.readValue(legacy, PlayerAnalysisDto::class.java)
 
         assertThat(dto.phaseMetrics).isNull()
+    }
+
+    @Test
+    @DisplayName("각도 지표의 unit이 역직렬화된다")
+    fun deserializesUnit() {
+        val dto = mapper.readValue(payload, PlayerAnalysisDto::class.java)
+
+        assertThat(dto.phaseMetrics!!.first().unit).isEqualTo("degree")
+    }
+
+    @Test
+    @DisplayName("unit 없는 축 지표는 null이 된다")
+    fun toleratesMissingUnit() {
+        val axisOnly =
+            """
+            {
+              "analysisId": "a1", "proId": "7", "overallScore": 79.3, "phaseScores": [],
+              "phaseMetrics": [
+                { "phase": "stride", "key": "stride_foot_width", "label": "디딤발 착지 폭", "status": "good" }
+              ]
+            }
+            """.trimIndent()
+
+        val dto = mapper.readValue(axisOnly, PlayerAnalysisDto::class.java)
+
+        assertThat(dto.phaseMetrics!!.first().unit).isNull()
     }
 }
