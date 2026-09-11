@@ -3,10 +3,12 @@ package com.capstone.backend.global.config
 import com.capstone.backend.global.filter.JwtAuthenticationFilter
 import com.capstone.backend.global.security.JsonAccessDeniedHandler
 import com.capstone.backend.global.security.JwtAuthenticationEntryPoint
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
+import org.springframework.security.authorization.AuthorizationDecision
 import org.springframework.security.authorization.AuthorizationManager
 import org.springframework.security.authorization.AuthorizationManagers
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -19,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import java.security.MessageDigest
 
 @Configuration
 @EnableWebSecurity
@@ -29,14 +32,22 @@ class SecurityConfig(
     // 파이썬 분석 서버가 인증 헤더 없이 /api/internal 을 호출하므로 토큰 대신 출발지 IP로 제한한다.
     // 배포 형태가 바뀌면(도커 브리지, 사설망 분리 등) 코드 수정 없이 설정만 바꾸면 되도록 뺐다.
     @Value("\${app.internal-api.allowed-cidrs}") private val internalAllowedCidrs: List<String>,
+    // 비어 있으면 IP만 본다(팀원 로컬 기본값). 외부 요청이 localhost로 들어오는 환경(코드스페이스)에서만 설정한다.
+    @Value("\${app.internal-api.key:}") private val internalApiKey: String,
     @Value("\${app.cors.allowed-origin-patterns}") private val corsAllowedOriginPatterns: List<String>,
 ) {
+    init {
+        if (internalApiKey.isBlank()) {
+            log.warn("내부 API 키(INTERNAL_API_KEY)가 설정되지 않아 /api/internal/** 를 출발지 IP로만 보호합니다.")
+        }
+    }
+
     /**
      * 내부 전용 API 체인. 레퍼런스 모델 등록·삭제가 포함되어 있어
      * 외부에 열어두면 요청 한 번으로 프로 비교 데이터를 전부 지울 수 있다.
      *
      * 별도 체인으로 분리한 이유:
-     * 이 경로는 JWT를 쓰지 않고 출발지 IP만 본다. 인증 개념이 없으므로 JWT 필터도 태우지 않는다.
+     * 이 경로는 JWT를 쓰지 않고 출발지 IP와(설정된 경우) 공유 키만 본다. 사용자 인증 개념이 없으므로 JWT 필터도 태우지 않는다.
      * 또 거부 시 항상 403이 나가야 한다. 하나의 체인에 두면 익명 요청이 거부될 때
      * Spring Security가 AuthenticationEntryPoint를 호출해 401("로그인하면 될 것 같은")을
      * 내보내는데, IP 제한은 토큰을 가져와도 결과가 같으므로 잘못된 신호다.
@@ -50,8 +61,9 @@ class SecurityConfig(
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { it.anyRequest().access(internalNetworkOnly()) }
-            .exceptionHandling {
+            .authorizeHttpRequests {
+                it.anyRequest().access(AuthorizationManagers.allOf(internalNetworkOnly(), internalKeyOnly()))
+            }.exceptionHandling {
                 // 인증 여부와 무관하게 거부는 곧 "권한 없음"이므로 양쪽 모두 403 응답기로 붙인다.
                 it.authenticationEntryPoint(accessDeniedHandler)
                 it.accessDeniedHandler(accessDeniedHandler)
@@ -100,6 +112,23 @@ class SecurityConfig(
                 .toTypedArray(),
         )
 
+    /**
+     * 키가 설정돼 있으면 X-Internal-Api-Key 헤더가 같아야 허용한다. 설정이 없으면 항상 허용한다(IP 검사만 남는다).
+     *
+     * MessageDigest.isEqual로 비교하는 이유: String.equals는 첫 불일치에서 멈추므로
+     * 응답 시간 차이로 키를 한 글자씩 알아낼 여지가 생긴다.
+     */
+    private fun internalKeyOnly(): AuthorizationManager<RequestAuthorizationContext> {
+        if (internalApiKey.isBlank()) {
+            return AuthorizationManager<RequestAuthorizationContext> { _, _ -> AuthorizationDecision(true) }
+        }
+        val expected = internalApiKey.toByteArray(Charsets.UTF_8)
+        return AuthorizationManager<RequestAuthorizationContext> { _, context ->
+            val provided = context.request.getHeader(INTERNAL_API_KEY_HEADER)?.toByteArray(Charsets.UTF_8)
+            AuthorizationDecision(provided != null && MessageDigest.isEqual(expected, provided))
+        }
+    }
+
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
@@ -114,5 +143,10 @@ class SecurityConfig(
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", configuration)
         return source
+    }
+
+    companion object {
+        const val INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key"
+        private val log = LoggerFactory.getLogger(SecurityConfig::class.java)
     }
 }

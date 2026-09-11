@@ -50,6 +50,10 @@ app:
     # 파이썬 분석 서버가 인증 헤더 없이 레퍼런스 API를 호출하므로(pro_cache.py) 토큰 대신 IP로 제한한다.
     # 기본값은 같은 호스트에서 함께 도는 현재 구성 기준이며, 도커·사설망으로 분리하면 대역을 추가한다.
     allowed-cidrs: ${INTERNAL_ALLOWED_CIDRS:127.0.0.1/32,::1/128}
+    # 설정하면 IP 검사에 더해 X-Internal-Api-Key 헤더가 이 값과 같아야 한다.
+    # 비워 두면 IP만 본다(로컬 개발 기본값). 코드스페이스처럼 외부 요청이 localhost로
+    # 들어오는 환경에서는 IP가 의미를 잃으므로 반드시 설정한다.
+    key: ${INTERNAL_API_KEY:}
   cors:
     # allowCredentials=true 와 "*" 조합은 사실상 모든 출처에 인증 정보 포함 요청을 허용한다.
     # 운영 배포 시에는 반드시 앱·웹 출처를 명시할 것.
